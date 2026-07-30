@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.infoworld.com)",
+      "WebFetch(domain:datacouch.io)",
+      "WebFetch(domain:arxiv.org)",
+      "WebFetch(domain:www.morphllm.com)",
+      "Bash(curl -sL -A \"Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/120.0 Safari/537.36\" --max-time 40 \"https://datacouch.io/blog/hybrid-rag-with-langgraph-qdrant-advanced-tutorial/\" -o /tmp/datacouch_rag.html -w \"HTTP_CODE:%{http_code}\\\\n\")",
+      "WebFetch(domain:vadim.blog)",
+      "Bash(gh api *)",
+      "WebFetch(domain:www.mindstudio.ai)",
+      "Bash(grep -oiE '\\(datePublished|dateModified|\"date\"|published_time|article:published\\)[^,}]{0,60}' /tmp/datacouch_rag.html)",
+      "Bash(grep -oiE '\\(January|February|March|April|May|June|July|August|September|October|November|December\\)[, ]+[0-9]{1,2},? +20[0-9]{2}' /tmp/datacouch_rag.html)",
+      "WebFetch(domain:towardsdatascience.com)",
+      "WebFetch(domain:www.anthropic.com)",
+      "WebFetch(domain:blog.voyageai.com)"
+    ]
+  }
+}

@@ -1,0 +1,1667 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DyPol — Acme Inc · Engineering pulse</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: { extend: {
+      colors: {
+        bg:'#FAF7F2', surface:'#FFFFFF', raised:'#FDFBF7',
+        ink:'#14110D', ink2:'#5C544A', ink3:'#8B8378',
+        hairline:'#E8E2D8', hairline2:'#D4CCBE',
+        accent:'#0F766E', accent2:'#E6F0EE',
+        ok:'#5C7F4F', hot:'#B86A3D', stuck:'#A04848', neutral:'#5C544A',
+      }
+    }}
+  }
+</script>
+
+<style>
+  :root {
+    --bg:#FAF7F2; --surface:#FFFFFF; --raised:#FDFBF7;
+    --ink:#14110D; --ink2:#5C544A; --ink3:#8B8378;
+    --hairline:#E8E2D8; --hairline2:#D4CCBE;
+    --accent:#0F766E; --accent2:#E6F0EE;
+    --ok:#5C7F4F; --hot:#B86A3D; --stuck:#A04848;
+    --warm-tint: rgba(184,106,61,0.04);
+    --row-hover: rgba(20,17,13,0.025);
+  }
+  html.dark {
+    --bg:#14110D; --surface:#1F1B16; --raised:#2A251F;
+    --ink:#FAF7F2; --ink2:#B5AC9F; --ink3:#857C70;
+    --hairline:#2F2A23; --hairline2:#3A3429;
+    --accent:#14B8A6; --accent2: rgba(20,184,166,0.10);
+    --ok:#7FA56E; --hot:#D58A5C; --stuck:#C26A6A;
+    --warm-tint: rgba(255,255,255,0.025);
+    --row-hover: rgba(255,255,255,0.035);
+  }
+
+  html, body { background: var(--bg); color: var(--ink); height:100%; overflow: hidden; }
+  body {
+    font-family: 'Inter', ui-sans-serif, system-ui;
+    font-size: 14px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Subtle grain on background */
+  body::before {
+    content:""; position:fixed; inset:0; pointer-events:none; z-index:1;
+    opacity: .03;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.7 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+  html.dark body::before { opacity: .06; }
+
+  .display { font-family:'Instrument Serif', ui-serif, Georgia; font-weight:400; letter-spacing:-0.012em; }
+  .italic-serif { font-family:'Instrument Serif', ui-serif, Georgia; font-style:italic; }
+  .mono { font-family:'JetBrains Mono', ui-monospace, Menlo; font-variant-numeric: tabular-nums; }
+  .num { font-family:'JetBrains Mono', ui-monospace, Menlo; font-variant-numeric: tabular-nums; letter-spacing:-0.005em; }
+
+  .label {
+    font-family:'Inter', ui-sans-serif; font-size: 10.5px; line-height:1;
+    text-transform: uppercase; letter-spacing: 0.10em; color: var(--ink2); font-weight: 500;
+  }
+  .label-tight { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink3); }
+  .hairline { border-color: var(--hairline); }
+  .hairline-strong { border-color: var(--hairline2); }
+  .surface { background: var(--surface); }
+  .raised { background: var(--raised); }
+
+  /* App shell */
+  .app { display: grid; grid-template-columns: 240px 1fr; height: 100vh; position: relative; z-index: 2; }
+  @media (max-width: 880px) { .app { grid-template-columns: 1fr; } .sidebar { display:none; } }
+
+  .sidebar {
+    background: var(--bg);
+    border-right: 1px solid var(--hairline);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  html.dark .sidebar { background: #100D0A; }
+
+  .nav-group { padding: 10px 12px; }
+  .nav-label { padding: 12px 10px 8px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 10px; border-radius: 5px;
+    font-size: 13.5px; color: var(--ink2); cursor: pointer;
+    border-left: 2px solid transparent; margin-left: -2px;
+    transition: background .15s ease, color .15s ease, border-color .15s ease;
+  }
+  .nav-item:hover { background: var(--warm-tint); color: var(--ink); }
+  .nav-item.active {
+    background: var(--accent2); color: var(--ink);
+    border-left-color: var(--accent);
+  }
+  .nav-item .ico { width: 14px; height: 14px; flex: none; opacity: .85; }
+  .nav-item .dot {
+    width: 5px; height: 5px; border-radius: 999px; background: var(--accent);
+    margin-left: auto;
+  }
+  .nav-item.elevated { color: var(--ink); }
+  .nav-item.elevated .ico { color: var(--accent); opacity: 1; }
+
+  /* Topbar */
+  .topbar {
+    height: 56px;
+    display: flex; align-items: center; gap: 14px;
+    padding: 0 24px;
+    border-bottom: 1px solid var(--hairline);
+    background: var(--bg);
+    flex-shrink: 0;
+  }
+
+  .crumb { display:flex; align-items:center; gap:6px; font-size: 13px; color: var(--ink2); }
+  .crumb .sep { color: var(--ink3); }
+  .crumb .here { color: var(--ink); }
+
+  .search {
+    flex: 1; max-width: 560px; margin: 0 auto;
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface); border: 1px solid var(--hairline); border-radius: 6px;
+    padding: 7px 10px;
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  .search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent2); }
+  .search input { flex:1; background: transparent; border: 0; outline: 0; font-size: 13.5px; color: var(--ink); }
+  .search input::placeholder { color: var(--ink3); }
+  .search .kbd { font-family:'JetBrains Mono', ui-monospace; font-size: 10.5px; color: var(--ink3); border: 1px solid var(--hairline); padding: 1px 5px; border-radius: 3px; }
+
+  .iconbtn { width: 30px; height: 30px; border-radius: 5px; display: grid; place-items: center; color: var(--ink2); cursor: pointer; transition: background .15s ease, color .15s ease; }
+  .iconbtn:hover { background: var(--warm-tint); color: var(--ink); }
+
+  .week-pill { display:inline-flex; align-items:center; gap:6px; font-size: 12.5px; color: var(--ink2); border: 1px solid var(--hairline); padding: 5px 9px; border-radius: 5px; cursor: pointer; transition: border-color .15s ease, color .15s ease; }
+  .week-pill:hover { border-color: var(--ink2); color: var(--ink); }
+
+  /* Content */
+  .main { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+  .scroll { flex: 1; overflow-y: auto; }
+  .scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+  .scroll::-webkit-scrollbar-thumb { background: rgba(20,17,13,0.10); border-radius: 999px; border: 3px solid var(--bg); }
+  html.dark .scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); }
+
+  .container-x { max-width: 1180px; margin: 0 auto; padding: 44px 56px 120px; }
+
+  /* Section helpers */
+  .h-page { font-family:'Instrument Serif'; font-size: 36px; line-height: 1.05; letter-spacing: -0.012em; color: var(--ink); }
+  .h-section { font-family:'Instrument Serif'; font-size: 24px; line-height: 1.15; letter-spacing: -0.01em; color: var(--ink); }
+  .h-card { font-size: 15px; font-weight: 600; color: var(--ink); letter-spacing: -0.005em; }
+
+  .kpi-num { font-family:'JetBrains Mono', ui-monospace; font-variant-numeric: tabular-nums; font-size: 44px; line-height: 1; letter-spacing: -0.02em; color: var(--ink); }
+  .kpi-num.small { font-size: 28px; }
+
+  /* Status */
+  .dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; flex-shrink: 0; }
+  .dot.ok { background: var(--ok); }
+  .dot.hot { background: var(--hot); }
+  .dot.stuck { background: var(--stuck); }
+  .dot.neutral { background: var(--ink3); }
+  .dot.accent { background: var(--accent); }
+
+  /* Pills */
+  .pill {
+    display:inline-flex; align-items:baseline; gap: 4px;
+    font-family:'JetBrains Mono', ui-monospace; font-size: 11.5px;
+    color: var(--accent);
+    background: var(--accent2);
+    border: 1px solid rgba(15,118,110,0.18);
+    padding: 1px 6px 2px; border-radius: 999px;
+    cursor: pointer; transition: background .15s ease;
+  }
+  html.dark .pill { border-color: rgba(20,184,166,0.25); }
+  .pill:hover { background: rgba(15,118,110, 0.13); }
+  html.dark .pill:hover { background: rgba(20,184,166,0.18); }
+
+  .chip {
+    display:inline-flex; align-items: center; gap: 6px;
+    font-size: 11.5px; color: var(--ink2);
+    border: 1px solid var(--hairline); padding: 3px 8px; border-radius: 999px;
+    cursor: pointer; transition: border-color .15s ease, color .15s ease;
+    background: var(--surface);
+  }
+  .chip:hover { color: var(--ink); border-color: var(--ink2); }
+  .chip.active { color: var(--ink); border-color: var(--ink); background: var(--ink); color: var(--bg); }
+  html.dark .chip.active { background: var(--ink); color: var(--bg); }
+
+  .btn-primary {
+    display:inline-flex; align-items:center; gap: 7px;
+    background: var(--accent); color: #F4FBF9; font-size: 13px; font-weight: 500;
+    padding: 7px 12px; border-radius: 6px;
+    transition: background .15s ease;
+  }
+  .btn-primary:hover { background: #0c635c; }
+  html.dark .btn-primary { color: #0a1f1d; }
+  html.dark .btn-primary:hover { background: #0FA396; }
+
+  .btn-secondary {
+    display:inline-flex; align-items:center; gap: 6px;
+    border: 1px solid var(--hairline); color: var(--ink); font-size: 13px;
+    padding: 6px 11px; border-radius: 6px; background: var(--surface);
+    transition: background .15s ease, border-color .15s ease;
+  }
+  .btn-secondary:hover { background: var(--warm-tint); border-color: var(--ink2); }
+
+  /* Cards & rows */
+  .card { background: var(--surface); border: 1px solid var(--hairline); border-radius: 8px; }
+  .row { display: grid; align-items: center; padding: 16px 18px; border-top: 1px solid var(--hairline); transition: background .15s ease; }
+  .row:hover { background: var(--warm-tint); }
+  .row:first-child { border-top: 0; }
+
+  /* Tables */
+  table.data { width: 100%; border-collapse: separate; border-spacing: 0; }
+  table.data th {
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: .10em; font-weight: 500;
+    color: var(--ink3); text-align: left; padding: 14px 16px;
+    border-bottom: 1px solid var(--hairline); position: sticky; top: 0; background: var(--bg); z-index: 1;
+  }
+  table.data th.right { text-align: right; }
+  table.data td { padding: 16px; border-bottom: 1px solid var(--hairline); font-size: 13.5px; vertical-align: middle; }
+  table.data tbody tr { transition: background .15s ease; cursor: pointer; }
+  table.data tbody tr:hover { background: var(--warm-tint); }
+  table.data .right { text-align: right; }
+
+  /* Sparklines */
+  .spark { display:block; }
+  .spark path { stroke: var(--accent); stroke-width: 1.5; fill: none; }
+  .spark circle { fill: var(--accent); }
+
+  /* Avatars */
+  .avatar {
+    display:inline-grid; place-items: center;
+    border-radius: 999px; color: #F4F1EC; font-size: 11px; font-weight: 600;
+    text-transform: uppercase; flex-shrink: 0;
+  }
+  .avatar.sm { width: 22px; height: 22px; font-size: 10px; }
+  .avatar.md { width: 28px; height: 28px; font-size: 11px; }
+  .avatar.lg { width: 48px; height: 48px; font-size: 16px; }
+  .avatar.color-0 { background: #2C5F5D; }
+  .avatar.color-1 { background: #8C5A3A; }
+  .avatar.color-2 { background: #5A4A75; }
+  .avatar.color-3 { background: #6B6E2E; }
+  .avatar.color-4 { background: #8C3A48; }
+  .avatar.color-5 { background: #2F4858; }
+  .avatar.color-6 { background: #784E3F; }
+  .avatar.color-7 { background: #4A6B5C; }
+
+  /* Status pill */
+  .status-line { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink2); }
+
+  /* Bars (for dimension breakdown) */
+  .bar-row { display: grid; grid-template-columns: 110px 1fr 50px; align-items: center; gap: 14px; padding: 12px 0; border-top: 1px solid var(--hairline); }
+  .bar-row:first-child { border-top: 0; }
+  .bar-track { height: 6px; background: var(--hairline); border-radius: 999px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--accent); border-radius: 999px; transform-origin: left; }
+
+  /* Active branch / row helpers */
+  .stuck-left { border-left: 2px solid var(--hot); }
+  .pad-left-2 { padding-left: 14px; }
+
+  /* Drawer */
+  .drawer-mask { position: fixed; inset: 0; background: rgba(20,17,13,0.30); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); opacity: 0; pointer-events: none; transition: opacity .25s ease; z-index: 60; }
+  html.dark .drawer-mask { background: rgba(0,0,0,.55); }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 560px; max-width: 100vw; background: var(--surface); border-left: 1px solid var(--hairline); z-index: 61; transform: translateX(100%); transition: transform .3s cubic-bezier(.2,.7,.2,1); display: flex; flex-direction: column; }
+  .drawer.open { transform: none; }
+  .drawer-mask.open { opacity: 1; pointer-events: auto; }
+
+  /* Ask Anything specific */
+  .ask-grid { display: grid; grid-template-columns: 1fr 320px; height: 100%; min-height: 0; }
+  @media (max-width: 1100px) { .ask-grid { grid-template-columns: 1fr; } .ask-rail { display: none; } }
+
+  .ask-rail {
+    display: flex; flex-direction: column; min-height: 0;
+    background: var(--bg); border-left: 1px solid var(--hairline);
+  }
+
+  .conv { padding: 8px 10px; border-radius: 5px; cursor: pointer; transition: background .15s ease; }
+  .conv:hover { background: var(--warm-tint); }
+  .conv.active { background: var(--surface); border: 1px solid var(--hairline); }
+  .conv .t { font-size: 13px; color: var(--ink); line-height: 1.3; }
+  .conv .m { font-size: 10.5px; color: var(--ink3); margin-top: 3px; font-family: 'JetBrains Mono'; letter-spacing: .04em; }
+
+  /* Inline conversation history (sidebar) */
+  .conv-history { margin-top: 8px; padding-left: 4px; border-left: 1px solid var(--hairline); margin-left: 11px; }
+  .conv-bucket-label {
+    font-family:'Inter'; font-size: 9.5px; line-height: 1; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--ink3);
+    padding: 10px 10px 5px 10px; font-weight: 500;
+  }
+  .conv-bucket-label:first-child { padding-top: 4px; }
+  .conv.mini {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 10px; border-radius: 4px;
+    font-size: 12.5px; color: var(--ink2); cursor: pointer;
+    border: 0;
+    transition: background .15s ease, color .15s ease;
+  }
+  .conv.mini .t {
+    font-size: 12.5px; color: var(--ink2); line-height: 1.3;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;
+  }
+  .conv.mini:hover { background: var(--warm-tint); }
+  .conv.mini:hover .t { color: var(--ink); }
+  .conv.mini.active { background: var(--accent2); }
+  .conv.mini.active .t { color: var(--ink); }
+
+  .ask-thread { max-width: 740px; margin: 0 auto; padding: 56px 32px 220px; }
+
+  .you-q .label { color: var(--ink3); margin-bottom: 8px; }
+  .you-q .q { font-family:'Instrument Serif'; font-style: italic; font-weight: 400; font-size: 22px; line-height: 1.35; color: var(--ink); letter-spacing: -0.005em; }
+  .you-q { padding-bottom: 20px; border-bottom: 1px solid var(--hairline); margin-bottom: 24px; }
+
+  .ai-prose { font-size: 15.5px; line-height: 1.65; color: var(--ink); }
+  .ai-prose p { margin-bottom: 12px; }
+  .ai-prose .muted { color: var(--ink2); }
+
+  .codeblock { background: #1F1B16; color: #FAF7F2; font-family:'JetBrains Mono'; font-size: 12.5px; line-height: 1.65; border-radius: 6px; padding: 14px 16px; }
+  html.dark .codeblock { background: #0E0C09; }
+
+  .filepath { font-family:'JetBrains Mono'; font-size: 11.5px; background: var(--accent2); color: var(--accent); border: 1px solid rgba(15,118,110,.18); border-radius: 4px; padding: 1px 5px; }
+  html.dark .filepath { border-color: rgba(20,184,166,0.25); }
+
+  /* Tool trace */
+  .tool-line {
+    display: flex; align-items: baseline; gap: 8px;
+    font-family:'JetBrains Mono'; font-size: 12px; color: var(--ink2);
+    padding: 4px 0;
+    transition: color .25s ease, opacity .25s ease;
+  }
+  .tool-line .pdot {
+    width: 6px; height: 6px; border-radius: 999px; background: var(--accent);
+    margin-right: 2px; flex-shrink: 0;
+    animation: pulseDot 1.1s ease-in-out infinite;
+  }
+  .tool-line.done .pdot { background: var(--ink3); animation: none; }
+  .tool-line.done { color: var(--ink3); opacity: .7; }
+  @keyframes pulseDot { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(0.6); opacity: .5; } }
+
+  /* Composer */
+  .composer-wrap { position: absolute; left: 0; right: 0; bottom: 0; padding: 18px 28px 22px; background: linear-gradient(180deg, transparent, var(--bg) 30%); pointer-events: none; }
+  .composer { pointer-events: auto; max-width: 740px; margin: 0 auto; background: var(--surface); border: 1px solid var(--hairline); border-radius: 10px; padding: 12px 12px 10px; transition: border-color .2s ease, box-shadow .2s ease; }
+  .composer:focus-within { border-color: rgba(15,118,110,.45); box-shadow: 0 0 0 3px var(--accent2); }
+  .composer textarea { width: 100%; resize: none; border: 0; outline: 0; background: transparent; font-size: 14px; line-height: 1.55; color: var(--ink); min-height: 24px; max-height: 200px; font-family: 'JetBrains Mono', ui-monospace; }
+  .composer textarea::placeholder { color: var(--ink3); }
+  .composer-actions { display:flex; align-items:center; justify-content:space-between; padding-top: 8px; }
+
+  /* Rail items */
+  .rail-item {
+    padding: 9px 12px; border-top: 1px solid var(--hairline);
+    transition: background .15s ease;
+    cursor: pointer;
+  }
+  .rail-item:hover { background: var(--warm-tint); }
+
+  /* Caret + streaming */
+  .caret { display: inline-block; width: 6px; height: 1em; background: var(--accent); vertical-align: -2px; margin-left: 1px; animation: blink 1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  ::selection { background: rgba(15,118,110,.18); color: var(--ink); }
+  html.dark ::selection { background: rgba(20,184,166,.25); color: var(--ink); }
+
+  .fade-in { animation: fadeIn .35s ease both; }
+  @keyframes fadeIn { from { opacity:0; transform: translateY(4px); } to { opacity:1; transform:none; } }
+
+  /* count-up support */
+  .count-up { display: inline-block; }
+
+  /* Repo health bar mini chart */
+  .bars { display: flex; align-items: flex-end; gap: 2px; }
+  .bars > div { width: 5px; background: var(--accent); border-radius: 1px; opacity: .6; }
+  .bars > div.hi { opacity: 1; }
+
+  /* Editorial digest */
+  .digest-col { max-width: 720px; margin: 0 auto; padding: 32px 28px 120px; }
+  .digest-col p { margin-bottom: 14px; }
+  .digest-col h2 { font-family:'Instrument Serif'; font-size: 26px; line-height: 1.15; margin: 38px 0 14px; }
+  .digest-col h1 { font-family:'Instrument Serif'; font-size: 48px; line-height: 1; margin-bottom: 8px; }
+
+  /* Animated bar fill */
+  .grow-x { transform: scaleX(0); animation: growX .6s cubic-bezier(.2,.7,.2,1) forwards; }
+  @keyframes growX { to { transform: scaleX(1); } }
+
+  /* Active conversation indicator */
+  .pulse-mini {
+    width: 6px; height: 6px; border-radius: 999px; background: var(--accent);
+    animation: pulseSmall 1.6s ease-in-out infinite;
+  }
+  @keyframes pulseSmall { 0%,100% { box-shadow: 0 0 0 0 rgba(15,118,110,.35); } 50% { box-shadow: 0 0 0 5px rgba(15,118,110,0); } }
+
+  /* User question dot */
+  .user-q-line { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--hairline); }
+  .user-q-line:first-child { border-top: 0; }
+  .user-q-line:hover { background: var(--warm-tint); }
+
+  /* simple progress (under score) */
+  .mini-track { width: 60px; height: 3px; background: var(--hairline); border-radius: 999px; overflow:hidden; }
+  .mini-track > span { display:block; height: 100%; background: var(--accent); }
+
+  /* Hide views by default */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* Status legend */
+  .legend { display: inline-flex; align-items: center; gap: 16px; }
+  .legend > span { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--ink2); }
+
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+  <!-- ============================================================
+       SIDEBAR
+       ============================================================ -->
+  <aside class="sidebar">
+    <!-- Org switcher -->
+    <div class="px-3 pt-3 pb-3 border-b hairline">
+      <button class="w-full flex items-center gap-2.5 px-2 py-2 rounded-md hover:bg-[var(--warm-tint)] transition-colors text-left">
+        <span class="avatar md color-0" style="border-radius: 6px; width:26px; height:26px;">A</span>
+        <span class="flex-1 min-w-0">
+          <span class="block text-[13.5px] font-medium truncate" style="color: var(--ink);">Acme Inc</span>
+          <span class="block text-[10.5px] mono" style="color: var(--ink3); letter-spacing:.04em;">15 devs · 23 repos</span>
+        </span>
+        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--ink3);"><path d="M4 6l4 4 4-4"/></svg>
+      </button>
+    </div>
+
+    <!-- Nav -->
+    <div class="flex-1 overflow-y-auto scroll">
+      <div class="nav-group">
+        <div class="nav-label label-tight">Overview</div>
+        <div class="nav-item active" data-route="dashboard">
+          <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8l3-3 3 3 3-4 3 3"/><path d="M2 13h12"/></svg>
+          Dashboard
+        </div>
+        <div class="nav-item" data-route="digest">
+          <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="2.5" width="11" height="11" rx="1"/><path d="M5 6h6M5 9h6M5 12h4"/></svg>
+          Weekly digest
+        </div>
+        <div class="nav-item" data-route="alerts">
+          <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 11h10l-1.5-2V6a3.5 3.5 0 0 0-7 0v3L3 11z"/><path d="M7 13h2"/></svg>
+          Alerts
+          <span class="dot"></span>
+        </div>
+        <div class="nav-item elevated" data-route="ask">
+          <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 6.5C2 4 4 2.5 8 2.5s6 1.5 6 4-2 4-6 4l-3 2.5v-3C3 9.5 2 8.2 2 6.5z"/></svg>
+          Ask anything
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label label-tight">People</div>
+        <div class="nav-item" data-route="leaderboard">
+          <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 13V8M8 13V4M13 13V10"/></svg>
+          Leaderboard
+        </div>
+        <div class="nav-item" data-route="leaderboard">
+          <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="2.5"/><path d="M2 13c0-2 2-3.5 4-3.5s4 1.5 4 3.5"/><circle cx="11" cy="5" r="1.8"/><path d="M9 12c1-1.5 2.5-2 4-2s3 .5 3 2"/></svg>
+          All devs
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label label-tight">Code</div>
+        <div class="nav-item" data-route="repos">
+          <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3h7l3 3v7H3z"/><path d="M5 7h6M5 10h4"/></svg>
+          Repos
+        </div>
+        <div class="nav-item" data-route="activity">
+          <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l3 2"/></svg>
+          Recent activity
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label label-tight flex items-center justify-between">
+          <span>Recent conversations</span>
+          <button id="new-conv-btn" title="New conversation" class="iconbtn" style="width:20px; height:20px;">
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M8 3v10M3 8h10"/></svg>
+          </button>
+        </div>
+
+        <!-- Inline conversation history -->
+        <div class="conv-history" style="margin-left: 0; padding-left: 0; border-left: 0;">
+          <div class="conv-bucket-label">Today</div>
+          <div class="conv mini active" data-q="What is Aanya working on?"><span class="t">What is Aanya working on?</span></div>
+          <div class="conv mini" data-q="Why is the billing repo slow?"><span class="t">Why is the billing repo slow?</span></div>
+
+          <div class="conv-bucket-label">Yesterday</div>
+          <div class="conv mini" data-q="What did we ship last week?"><span class="t">What did we ship last week?</span></div>
+          <div class="conv mini" data-q="Find every place we still call stripe.charge() — are they still active?"><span class="t">stripe.charge() audit</span></div>
+          <div class="conv mini" data-q="Reviewer load distribution this sprint"><span class="t">Reviewer load distribution</span></div>
+
+          <div class="conv-bucket-label">Last week</div>
+          <div class="conv mini" data-q="Who has the most stuck branches right now?"><span class="t">Stuck branches by author</span></div>
+          <div class="conv mini"><span class="t">PRs touching /auth in Q1</span></div>
+          <div class="conv mini"><span class="t">Time-to-first-review trend</span></div>
+          <div class="conv mini"><span class="t">Hotspot files by churn</span></div>
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label label-tight">Workspace</div>
+        <div class="nav-item" data-route="settings">
+          <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2"/><path d="M8 2v1.5M8 12.5V14M2 8h1.5M12.5 8H14M3.8 3.8l1 1M11.2 11.2l1 1M3.8 12.2l1-1M11.2 4.8l1-1"/></svg>
+          Settings
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="px-3 pt-2 pb-3 border-t hairline">
+      <div class="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-[var(--warm-tint)] transition-colors cursor-pointer" id="user-menu-btn">
+        <span class="avatar md color-1">AK</span>
+        <span class="flex-1 min-w-0">
+          <span class="block text-[13px] truncate" style="color: var(--ink);">Alex Kim</span>
+          <span class="block mono text-[10.5px]" style="color: var(--ink3); letter-spacing:.04em;">VP Engineering</span>
+        </span>
+        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--ink3);"><path d="M4 10l4-4 4 4"/></svg>
+      </div>
+      <div class="flex items-center justify-between px-2 mt-2">
+        <span class="flex items-center gap-1.5 mono text-[10px]" style="color: var(--ink3); letter-spacing: .08em; text-transform: uppercase;">
+          <span class="pulse-mini" style="background: var(--ok); animation-name: pulseSmall;"></span>
+          v1.0 · operational
+        </span>
+        <button class="iconbtn" id="theme-toggle" title="Toggle theme">
+          <svg id="theme-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 9.5A5.5 5.5 0 0 1 6.5 3 5 5 0 1 0 13 9.5z"/></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============================================================
+       MAIN
+       ============================================================ -->
+  <section class="main relative">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="crumb">
+        <span>Acme Inc</span>
+        <span class="sep">/</span>
+        <span class="here" id="crumb-here">Dashboard</span>
+      </div>
+
+      <div class="search">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--ink3);"><circle cx="7" cy="7" r="4.5"/><path d="M11 11l3 3"/></svg>
+        <input id="global-search" type="text" placeholder="Search devs, repos, or ask a question…" />
+        <span class="kbd">⌘K</span>
+      </div>
+
+      <button class="iconbtn" title="Notifications">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 11h10l-1.5-2V6a3.5 3.5 0 0 0-7 0v3L3 11z"/><path d="M7 13h2"/></svg>
+      </button>
+      <button class="week-pill">
+        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="3.5" width="11" height="10" rx="1"/><path d="M5 2v3M11 2v3M2.5 7h11"/></svg>
+        Week of May 4
+      </button>
+      <span class="avatar md color-1">AK</span>
+    </header>
+
+    <!-- Scroll area -->
+    <div class="scroll" id="scroll-root" style="position: relative;">
+
+      <!-- ============================================================
+           VIEW · DASHBOARD
+           ============================================================ -->
+      <div class="view active" data-view="dashboard">
+        <div class="container-x">
+
+          <!-- Title -->
+          <div class="flex items-end justify-between mb-12">
+            <div>
+              <h1 class="h-page">Engineering <span class="italic-serif">pulse</span></h1>
+              <p class="text-[13.5px] mt-2" style="color: var(--ink2);">
+                Week of May 4 · <span class="num text-[13px]">47</span> PRs merged · <span class="num text-[13px]">12</span> active devs · <span class="num text-[13px]">18</span> active repos
+              </p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button class="btn-secondary">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 8l3-3v2h7v2H6v2L3 8z"/></svg>
+                Export
+              </button>
+              <button class="btn-primary" data-route="ask">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 6.5C2 4 4 2.5 8 2.5s6 1.5 6 4-2 4-6 4l-3 2.5v-3C3 9.5 2 8.2 2 6.5z"/></svg>
+                Ask anything
+              </button>
+            </div>
+          </div>
+
+          <!-- KPI row (editorial, no card borders) -->
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-x-14 gap-y-10 mb-20 pb-1">
+            <div class="border-b hairline pb-5">
+              <div class="label-tight mb-3">PRs merged · 7d</div>
+              <div class="kpi-num count-up" data-target="47">0</div>
+              <div class="flex items-center gap-3 mt-2">
+                <svg class="spark" width="60" height="20" viewBox="0 0 60 20"><path d="M0 14 L8 12 L16 13 L24 9 L32 8 L40 5 L48 7 L60 3"/><circle cx="60" cy="3" r="1.6"/></svg>
+                <span class="mono text-[11px]" style="color: var(--ink2);">+12% vs last wk</span>
+              </div>
+            </div>
+            <div class="border-b hairline pb-5">
+              <div class="label-tight mb-3">Cycle time · median</div>
+              <div class="kpi-num"><span class="count-up" data-target="38">0</span><span style="color: var(--ink3); font-size: 22px; margin-left: 2px;">h</span></div>
+              <div class="flex items-center gap-3 mt-2">
+                <svg class="spark" width="60" height="20" viewBox="0 0 60 20"><path d="M0 5 L8 6 L16 8 L24 7 L32 10 L40 8 L48 12 L60 11"/><circle cx="60" cy="11" r="1.6"/></svg>
+                <span class="mono text-[11px]" style="color: var(--hot);">+3.2h vs last wk</span>
+              </div>
+            </div>
+            <div class="border-b hairline pb-5">
+              <div class="label-tight mb-3">Active developers</div>
+              <div class="kpi-num count-up" data-target="12">0</div>
+              <div class="flex items-center gap-3 mt-2">
+                <svg class="spark" width="60" height="20" viewBox="0 0 60 20"><path d="M0 8 L8 10 L16 9 L24 8 L32 7 L40 8 L48 6 L60 7"/><circle cx="60" cy="7" r="1.6"/></svg>
+                <span class="mono text-[11px]" style="color: var(--ink2);">— same as last wk</span>
+              </div>
+            </div>
+            <div class="border-b hairline pb-5">
+              <div class="label-tight mb-3">Repos shipped to</div>
+              <div class="kpi-num count-up" data-target="9">0</div>
+              <div class="flex items-center gap-3 mt-2">
+                <svg class="spark" width="60" height="20" viewBox="0 0 60 20"><path d="M0 12 L8 11 L16 9 L24 10 L32 8 L40 7 L48 6 L60 5"/><circle cx="60" cy="5" r="1.6"/></svg>
+                <span class="mono text-[11px]" style="color: var(--ink2);">+2 vs last wk</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Needs attention -->
+          <section class="mb-20">
+            <div class="flex items-end justify-between mb-3">
+              <div>
+                <h2 class="h-section">Needs attention</h2>
+                <p class="text-[12.5px] mt-1" style="color: var(--ink2);">5 items that benefit from a look this morning</p>
+              </div>
+              <button class="text-[12px]" style="color: var(--ink2);">Snooze all <span class="mono">→</span></button>
+            </div>
+
+            <div class="card mt-4">
+              <div class="row" style="grid-template-columns: 14px 1fr auto auto; gap: 14px; padding: 13px 16px;">
+                <span class="dot stuck"></span>
+                <span><span class="num text-[13px]">PR <a href="#" class="pill">#1247</a></span> in <span class="mono text-[12.5px]">billing-svc</span> has waited <span class="num">9 days</span> for review from <strong style="color: var(--ink); font-weight: 500;">Raj Patel</strong>.</span>
+                <span class="mono text-[11px]" style="color: var(--ink3);">3d ago</span>
+                <a class="text-[12px]" style="color: var(--ink2);">View →</a>
+              </div>
+              <div class="row" style="grid-template-columns: 14px 1fr auto auto; gap: 14px; padding: 13px 16px;">
+                <span class="dot hot"></span>
+                <span><strong style="color: var(--ink); font-weight: 500;">Aanya Sharma</strong> has <span class="num">5 open PRs</span> across 3 repos and <span class="num">12 reviews owed</span>. Workload is <span style="color: var(--hot);">elevated</span>.</span>
+                <span class="mono text-[11px]" style="color: var(--ink3);">today</span>
+                <a class="text-[12px]" style="color: var(--ink2);">View →</a>
+              </div>
+              <div class="row" style="grid-template-columns: 14px 1fr auto auto; gap: 14px; padding: 13px 16px;">
+                <span class="dot hot"></span>
+                <span>Cycle time on <span class="mono text-[12.5px]">billing-svc</span> is up <span class="num">+40%</span> this week — <span style="color: var(--ink2);">two named reviewers carry 84% of reviews; one is on PTO.</span></span>
+                <span class="mono text-[11px]" style="color: var(--ink3);">today</span>
+                <a class="text-[12px]" style="color: var(--ink2);">View →</a>
+              </div>
+              <div class="row" style="grid-template-columns: 14px 1fr auto auto; gap: 14px; padding: 13px 16px;">
+                <span class="dot stuck"></span>
+                <span>Branch <span class="mono text-[12.5px]">noor/schema-migration-v2</span> has <span class="num">18 commits</span> since last push — no PR in <span class="num">21 days</span>.</span>
+                <span class="mono text-[11px]" style="color: var(--ink3);">2w ago</span>
+                <a class="text-[12px]" style="color: var(--ink2);">View →</a>
+              </div>
+              <div class="row" style="grid-template-columns: 14px 1fr auto auto; gap: 14px; padding: 13px 16px;">
+                <span class="dot neutral"></span>
+                <span>Test flakiness in <span class="mono text-[12.5px]">hydra-api</span> is up <span class="num">2.4×</span>. <span style="color: var(--ink2);">Most retries on <span class="mono text-[12px]">ws-handler.spec.ts</span>.</span></span>
+                <span class="mono text-[11px]" style="color: var(--ink3);">yesterday</span>
+                <a class="text-[12px]" style="color: var(--ink2);">View →</a>
+              </div>
+            </div>
+          </section>
+
+          <!-- Two-column split -->
+          <section class="grid grid-cols-1 lg:grid-cols-5 gap-14 mb-20">
+            <div class="lg:col-span-3">
+              <div class="flex items-end justify-between mb-4">
+                <h2 class="h-section">What shipped this week</h2>
+                <button class="text-[12px]" style="color: var(--ink2);">View full digest →</button>
+              </div>
+              <ul class="space-y-3.5 text-[14.5px]" style="line-height: 1.6;">
+                <li class="flex gap-3"><span class="num text-[12px] mt-1" style="color: var(--ink3); flex-shrink:0;">01</span><span><strong style="font-weight: 500;">Auth.</strong> PKCE rollout completed — <a class="pill">#1247</a> <a class="pill">#1252</a>. SSO lockout edge case fixed in <a class="pill">#1248</a>.</span></li>
+                <li class="flex gap-3"><span class="num text-[12px] mt-1" style="color: var(--ink3); flex-shrink:0;">02</span><span><strong style="font-weight: 500;">Billing.</strong> Stripe webhook retry logic refactored to use the queue runner (<a class="pill">#1259</a>, in flight). Usage-meter foundation merged.</span></li>
+                <li class="flex gap-3"><span class="num text-[12px] mt-1" style="color: var(--ink3); flex-shrink:0;">03</span><span><strong style="font-weight: 500;">Infra.</strong> Postgres upgraded to 16; staging cluster autoscaling fix; Tuesday's outage post-mortem in <a class="pill">#1241</a>.</span></li>
+                <li class="flex gap-3"><span class="num text-[12px] mt-1" style="color: var(--ink3); flex-shrink:0;">04</span><span><strong style="font-weight: 500;">Mobile.</strong> Onboarding flow rewrite landed (<a class="pill">#418</a>). Push-notification permission prompt iterated based on activation cohort data.</span></li>
+                <li class="flex gap-3"><span class="num text-[12px] mt-1" style="color: var(--ink3); flex-shrink:0;">05</span><span><strong style="font-weight: 500;">Internal.</strong> Admin tools for refunds shipped to support team. Two CLI ergonomics improvements.</span></li>
+              </ul>
+            </div>
+
+            <div class="lg:col-span-2">
+              <h2 class="h-section mb-4">Who shipped what</h2>
+              <div id="contrib-list" class="border-t hairline">
+                <!-- rows injected -->
+              </div>
+            </div>
+          </section>
+
+          <!-- Repo health quick view -->
+          <section class="mb-6">
+            <div class="flex items-end justify-between mb-3">
+              <h2 class="h-section">Repo health</h2>
+              <div class="legend">
+                <span><span class="dot ok"></span> Healthy</span>
+                <span><span class="dot hot"></span> Hot</span>
+                <span><span class="dot stuck"></span> Stuck</span>
+                <span><span class="dot neutral"></span> Maintenance</span>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-2 mt-3" id="repo-pills">
+              <!-- injected -->
+            </div>
+          </section>
+
+        </div>
+      </div>
+
+      <!-- ============================================================
+           VIEW · LEADERBOARD
+           ============================================================ -->
+      <div class="view" data-view="leaderboard">
+        <div class="container-x">
+          <div class="flex items-end justify-between mb-8">
+            <div>
+              <h1 class="h-page">Developers</h1>
+              <p class="text-[13.5px] mt-2" style="color: var(--ink2);">Scored on Impact · Quality · Collaboration · Consistency. Never LOC, never commit count.</p>
+            </div>
+            <a href="#" class="text-[12.5px]" style="color: var(--accent);">Read methodology →</a>
+          </div>
+
+          <!-- Filters -->
+          <div class="flex items-center gap-3 mb-5">
+            <div class="flex items-center gap-1 border hairline rounded-md p-0.5 surface">
+              <button class="chip active" style="border:0; background: var(--ink); color: var(--bg); padding: 4px 9px;">7 days</button>
+              <button class="chip" style="border:0; padding: 4px 9px;">30 days</button>
+              <button class="chip" style="border:0; padding: 4px 9px;">90 days</button>
+            </div>
+            <button class="btn-secondary">All teams <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6l4 4 4-4"/></svg></button>
+            <button class="btn-secondary">Sort: Score <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6l4 4 4-4"/></svg></button>
+            <span class="ml-auto label-tight">12 active devs</span>
+          </div>
+
+          <!-- Table -->
+          <div class="card overflow-hidden">
+            <table class="data">
+              <thead>
+                <tr>
+                  <th style="width: 56px;">#</th>
+                  <th>Developer</th>
+                  <th class="right" style="width: 130px;">Score</th>
+                  <th style="width: 90px;">Trend</th>
+                  <th class="right" style="width: 70px;">Impact</th>
+                  <th class="right" style="width: 70px;">Quality</th>
+                  <th class="right" style="width: 70px;">Collab</th>
+                  <th class="right" style="width: 70px;">Consist</th>
+                  <th>This week</th>
+                </tr>
+              </thead>
+              <tbody id="dev-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================
+           VIEW · REPOS
+           ============================================================ -->
+      <div class="view" data-view="repos">
+        <div class="container-x">
+          <div class="flex items-end justify-between mb-8">
+            <div>
+              <h1 class="h-page">Repos</h1>
+              <p class="text-[13.5px] mt-2" style="color: var(--ink2);">23 connected · 18 active in last 30 days</p>
+            </div>
+            <div class="legend">
+              <span><span class="dot ok"></span> Healthy</span>
+              <span><span class="dot hot"></span> Hot</span>
+              <span><span class="dot stuck"></span> Stuck</span>
+              <span><span class="dot neutral"></span> Maintenance</span>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 mb-5">
+            <button class="chip active" style="background: var(--ink); color: var(--bg); border-color: var(--ink);">All</button>
+            <button class="chip">Hot</button>
+            <button class="chip">Stuck</button>
+            <button class="chip">Healthy</button>
+            <button class="chip">Maintenance</button>
+            <span class="ml-auto label-tight">Last 30 days</span>
+          </div>
+
+          <div class="card overflow-hidden" id="repo-list">
+            <!-- injected -->
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================
+           VIEW · REPO DETAIL
+           ============================================================ -->
+      <div class="view" data-view="repo-detail">
+        <div class="container-x">
+          <a class="text-[12.5px] mb-5 inline-flex items-center gap-1" style="color: var(--ink2);" data-route="repos"><span>←</span> Repos</a>
+
+          <div class="flex items-start justify-between mb-2">
+            <div>
+              <h1 class="h-page"><span class="mono" style="font-family:'JetBrains Mono'; font-size: 28px; color: var(--ink); font-weight: 500;">billing-svc</span></h1>
+              <div class="flex items-center gap-3 mt-2">
+                <span class="status-line"><span class="dot hot"></span> Hot · review latency up 40%</span>
+                <span style="color: var(--ink3);">·</span>
+                <span class="text-[12.5px]" style="color: var(--ink2);">Private · TypeScript · 11 contributors</span>
+                <a class="text-[12.5px]" style="color: var(--ink2);">View on GitHub →</a>
+              </div>
+            </div>
+            <button class="btn-secondary">Subscribe to alerts</button>
+          </div>
+
+          <!-- KPIs for this repo -->
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-x-14 gap-y-10 mt-10 mb-14 pb-1">
+            <div class="border-b hairline pb-5">
+              <div class="label-tight mb-2">Open PRs</div>
+              <div class="kpi-num small">12</div>
+              <div class="mono text-[11px] mt-1" style="color: var(--hot);">3 blocked &gt; 7d</div>
+            </div>
+            <div class="border-b hairline pb-5">
+              <div class="label-tight mb-2">Merged this week</div>
+              <div class="kpi-num small">8</div>
+              <div class="mono text-[11px] mt-1" style="color: var(--ink2);">+2 vs last week</div>
+            </div>
+            <div class="border-b hairline pb-5">
+              <div class="label-tight mb-2">Cycle time · median</div>
+              <div class="kpi-num small">52<span style="color: var(--ink3); font-size: 16px;">h</span></div>
+              <div class="mono text-[11px] mt-1" style="color: var(--hot);">+40% vs prev</div>
+            </div>
+            <div class="border-b hairline pb-5">
+              <div class="label-tight mb-2">Active contributors</div>
+              <div class="kpi-num small">5</div>
+              <div class="mono text-[11px] mt-1" style="color: var(--ink2);">— same as prev</div>
+            </div>
+          </div>
+
+          <!-- Trend chart -->
+          <section class="mb-12">
+            <div class="flex items-end justify-between mb-3">
+              <h2 class="h-section">Activity · last 12 weeks</h2>
+              <span class="label-tight">PRs merged per week</span>
+            </div>
+            <div class="card p-5">
+              <svg viewBox="0 0 600 120" width="100%" height="140" preserveAspectRatio="none">
+                <path d="M0 90 L50 75 L100 80 L150 60 L200 70 L250 55 L300 50 L350 60 L400 45 L450 70 L500 85 L550 65 L600 50" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
+                <circle cx="600" cy="50" r="3" fill="var(--accent)"/>
+              </svg>
+              <div class="flex justify-between mt-2 mono text-[10px]" style="color: var(--ink3); letter-spacing:.06em;">
+                <span>FEB 16</span><span>MAR 02</span><span>MAR 16</span><span>MAR 30</span><span>APR 13</span><span>APR 27</span><span>MAY 04</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- Open PR queue -->
+          <section class="mb-12">
+            <div class="flex items-end justify-between mb-3">
+              <h2 class="h-section">Open PR queue</h2>
+              <span class="label-tight">12 open · sorted by age</span>
+            </div>
+            <div class="card overflow-hidden">
+              <table class="data">
+                <thead><tr>
+                  <th style="width:90px;">PR</th>
+                  <th>Title</th>
+                  <th style="width:160px;">Author</th>
+                  <th class="right" style="width:80px;">Age</th>
+                  <th style="width:160px;">Reviewer</th>
+                  <th style="width:120px;">Status</th>
+                </tr></thead>
+                <tbody>
+                  <tr class="stuck-left"><td><a class="pill">#812</a></td><td>Webhook retries with idempotency keys</td><td><span class="avatar sm color-2">AS</span> <span class="ml-1.5">Aanya Sharma</span></td><td class="right num">9d</td><td><span class="avatar sm color-3">RP</span> <span class="ml-1.5">Raj Patel</span></td><td><span class="status-line"><span class="dot stuck"></span> Awaiting review</span></td></tr>
+                  <tr class="stuck-left"><td><a class="pill">#814</a></td><td>Refactor invoice generator</td><td><span class="avatar sm color-4">PN</span> <span class="ml-1.5">Priya Nair</span></td><td class="right num">8d</td><td><span class="avatar sm color-3">RP</span> <span class="ml-1.5">Raj Patel</span></td><td><span class="status-line"><span class="dot stuck"></span> Awaiting review</span></td></tr>
+                  <tr class="stuck-left"><td><a class="pill">#819</a></td><td>Migrate dunning to v2 dispatcher</td><td><span class="avatar sm color-5">MC</span> <span class="ml-1.5">Marcus Chen</span></td><td class="right num">7d</td><td><span class="avatar sm color-2">AS</span> <span class="ml-1.5">Aanya Sharma</span></td><td><span class="status-line"><span class="dot stuck"></span> Changes requested</span></td></tr>
+                  <tr><td><a class="pill">#823</a></td><td>Stripe webhook signature verification</td><td><span class="avatar sm color-6">JL</span> <span class="ml-1.5">Jordan Lee</span></td><td class="right num">3d</td><td><span class="avatar sm color-2">AS</span> <span class="ml-1.5">Aanya Sharma</span></td><td><span class="status-line"><span class="dot accent"></span> In review</span></td></tr>
+                  <tr><td><a class="pill">#824</a></td><td>Add usage-meter contract types</td><td><span class="avatar sm color-2">AS</span> <span class="ml-1.5">Aanya Sharma</span></td><td class="right num">2d</td><td><span class="avatar sm color-7">SP</span> <span class="ml-1.5">Sam Park</span></td><td><span class="status-line"><span class="dot accent"></span> In review</span></td></tr>
+                  <tr><td><a class="pill">#828</a></td><td>Receipt PDF rendering — i18n pass</td><td><span class="avatar sm color-7">SP</span> <span class="ml-1.5">Sam Park</span></td><td class="right num">1d</td><td><span class="avatar sm color-4">PN</span> <span class="ml-1.5">Priya Nair</span></td><td><span class="status-line"><span class="dot ok"></span> Approved</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- LLM weekly summary -->
+          <section class="mb-12">
+            <div class="flex items-end justify-between mb-3">
+              <h2 class="h-section">What the agent sees</h2>
+              <span class="label-tight">Generated 2h ago</span>
+            </div>
+            <div class="card p-6">
+              <p class="ai-prose mb-3"><strong style="font-weight: 500;">billing-svc</strong> shipped 8 PRs this week — most of them small (median 142 lines), most around the dunning refactor and webhook retry work that's been in motion for two sprints.</p>
+              <p class="ai-prose mb-3 muted">Review latency is the story. <a class="pill">#812</a>, <a class="pill">#814</a>, and <a class="pill">#819</a> have been waiting 7–9 days. The data: Marcus is on PTO and Priya is on call, so the only consistently-available reviewer is Aanya — who is also the primary author on the most active PR in the repo. The two named reviewers cover 84% of approvals here historically.</p>
+              <p class="ai-prose muted">If you reshuffle CODEOWNERS to add Sam Park as a third reviewer this week, the agent estimates p50 latency drops back to ~12h within 4 working days.</p>
+            </div>
+          </section>
+
+          <!-- Top contributors -->
+          <section>
+            <h2 class="h-section mb-3">Top contributors · this period</h2>
+            <div class="card overflow-hidden">
+              <table class="data">
+                <thead><tr><th style="width:40px;">#</th><th>Developer</th><th class="right">Merged</th><th class="right">Reviewed</th><th class="right">Score</th></tr></thead>
+                <tbody>
+                  <tr><td class="num" style="color: var(--ink3);">01</td><td><span class="avatar sm color-2">AS</span> <span class="ml-1.5">Aanya Sharma</span></td><td class="right num">4</td><td class="right num">11</td><td class="right num">94</td></tr>
+                  <tr><td class="num" style="color: var(--ink3);">02</td><td><span class="avatar sm color-4">PN</span> <span class="ml-1.5">Priya Nair</span></td><td class="right num">2</td><td class="right num">7</td><td class="right num">82</td></tr>
+                  <tr><td class="num" style="color: var(--ink3);">03</td><td><span class="avatar sm color-7">SP</span> <span class="ml-1.5">Sam Park</span></td><td class="right num">1</td><td class="right num">4</td><td class="right num">71</td></tr>
+                  <tr><td class="num" style="color: var(--ink3);">04</td><td><span class="avatar sm color-6">JL</span> <span class="ml-1.5">Jordan Lee</span></td><td class="right num">1</td><td class="right num">3</td><td class="right num">66</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+        </div>
+      </div>
+
+      <!-- ============================================================
+           VIEW · ASK ANYTHING
+           ============================================================ -->
+      <div class="view" data-view="ask" style="height: 100%;">
+        <div class="ask-grid" style="height: 100%;">
+
+          <!-- Center conversation -->
+          <div class="relative" style="display: flex; flex-direction: column; min-height: 0;">
+            <div class="scroll" id="ask-scroll" style="flex: 1;">
+              <div class="ask-thread">
+                <div class="mb-8">
+                  <div class="label-tight mb-2">Conversation</div>
+                  <h1 class="h-page"><span class="italic-serif" style="color: var(--ink2);">"</span>What is Aanya working on?<span class="italic-serif" style="color: var(--ink2);">"</span></h1>
+                </div>
+                <div id="ask-thread-body"></div>
+              </div>
+            </div>
+
+            <div class="composer-wrap">
+              <form id="composer" class="composer">
+                <textarea id="ask-input" placeholder="Ask anything about your engineering org…" rows="1"></textarea>
+                <div class="composer-actions">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="chip">@ scope: all repos</span>
+                    <span class="chip">8 tools</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="label-tight hidden sm:inline">⏎ to send</span>
+                    <button type="submit" class="btn-primary" id="ask-send">
+                      Send
+                      <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="flex flex-wrap gap-1.5 mt-3" id="ask-suggest">
+                  <button type="button" class="chip" data-q="What did Aanya ship this week?">What did Aanya ship this week?</button>
+                  <button type="button" class="chip" data-q="Why is the billing repo behind?">Why is the billing repo behind?</button>
+                  <button type="button" class="chip" data-q="Show review latency by repo">Show review latency by repo</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- Sources rail -->
+          <div class="ask-rail">
+            <div class="px-4 pt-4 pb-3 border-b hairline flex items-center justify-between">
+              <span class="label-tight">Sources</span>
+              <span class="mono text-[10.5px]" style="color: var(--ink3);" id="sources-count">— items</span>
+            </div>
+            <div class="flex-1 overflow-y-auto scroll" id="sources-list">
+              <!-- injected -->
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ============================================================
+           VIEW · WEEKLY DIGEST
+           ============================================================ -->
+      <div class="view" data-view="digest">
+        <div class="digest-col">
+          <div class="label-tight mb-3">Acme Inc · Engineering digest</div>
+          <h1 class="display">Week of <span class="italic-serif">May 4</span></h1>
+          <p class="text-[13.5px]" style="color: var(--ink2); margin-top: 4px;">Generated by DyPol · Mon May 11, 06:00 PT · <a class="text-[12.5px]" style="color: var(--ink);">8-min read</a></p>
+
+          <hr class="my-7" style="border-color: var(--hairline);" />
+
+          <p class="text-[16px] leading-[1.7]">A quieter week than the last two — fewer PRs landed, but the ones that did were structural rather than cosmetic. Most of the auth-system work shipped, billing is getting unblocked, and the staging-cluster scare on Tuesday turned out to be a known autoscaler bug we now have a fix for.</p>
+
+          <h2>What shipped</h2>
+          <p><span class="num text-[14px]">47 PRs merged</span> across <span class="num text-[14px]">9 repos</span>. The themes:</p>
+          <p><strong>Auth.</strong> The PKCE rollout is complete (<a class="pill">#1247</a>) and the SSO lockout edge case is fixed (<a class="pill">#1252</a>). Engineers should remove the legacy <span class="filepath">apps/auth/legacy.ts</span> in next sprint's cleanup.</p>
+          <p><strong>Billing.</strong> Stripe webhook retries refactored to use the queue runner (<a class="pill">#1259</a>). Receipt PDFs now ship i18n strings (<a class="pill">#828</a>). Usage-meter foundation merged behind a flag.</p>
+          <p><strong>Infra.</strong> Postgres upgrade to 16 completed without incident. Tuesday's outage post-mortem (<a class="pill">#1241</a>) identified a stale autoscaler config; fix is in <a class="pill">#1265</a>.</p>
+
+          <h2>What's stuck</h2>
+          <p>Three PRs in <span class="filepath">billing-svc</span> have been waiting 7–9 days for review: <a class="pill">#812</a>, <a class="pill">#814</a>, <a class="pill">#819</a>. Marcus is on PTO and Priya is on call this week; the agent suggests adding Sam Park to CODEOWNERS as a third reviewer until next Monday.</p>
+          <p>Branch <span class="filepath">noor/schema-migration-v2</span> has 18 commits and no PR after 21 days. Worth a check-in.</p>
+
+          <h2>Who's killing it</h2>
+          <p><strong>Aanya Sharma</strong> shipped 4 PRs and reviewed 11 across two repos. Her review comments this week were uncommonly thorough — three of them prevented bugs that would have hit production.</p>
+          <p><strong>Priya Nair</strong> carried billing's review load while on call without dropping latency on her own work. <strong>Marcus Chen</strong> closed out the dunning v2 migration the day before going on PTO — clean handoff.</p>
+
+          <h2>What needs attention</h2>
+          <p>Cycle time on <span class="filepath">billing-svc</span> is up <span class="num">+40%</span>. <span class="filepath">hydra-api</span>'s test flakiness is up <span class="num">2.4×</span> — most retries on <span class="filepath">ws-handler.spec.ts</span>, which Jordan wrote three weeks ago. Worth a quick look.</p>
+
+          <hr class="my-10" style="border-color: var(--hairline);" />
+          <p class="text-[13px]" style="color: var(--ink3);">DyPol only counts pushed work. Engineers can see exactly what we see about them at <span class="filepath">/me</span>.</p>
+        </div>
+      </div>
+
+      <!-- ============================================================
+           VIEW · ALERTS / ACTIVITY / SETTINGS (compact)
+           ============================================================ -->
+      <div class="view" data-view="alerts">
+        <div class="container-x">
+          <h1 class="h-page mb-2">Alerts</h1>
+          <p class="text-[13.5px]" style="color: var(--ink2);">Configurable signals about your org. We send the ones you care about — never daily noise.</p>
+          <div class="card mt-8 p-6 max-w-2xl">
+            <p class="ai-prose">No new alerts since Friday. <span class="muted">The Tuesday staging incident, the billing review-latency spike, and Noor's stuck branch are still open under <a style="color: var(--accent);">Needs attention</a> on the dashboard.</span></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="view" data-view="activity">
+        <div class="container-x">
+          <h1 class="h-page mb-2">Recent activity</h1>
+          <p class="text-[13.5px]" style="color: var(--ink2);">Live event stream from your connected repos.</p>
+          <div class="card mt-8" id="activity-list"></div>
+        </div>
+      </div>
+
+      <div class="view" data-view="settings">
+        <div class="container-x">
+          <h1 class="h-page mb-2">Settings</h1>
+          <p class="text-[13.5px]" style="color: var(--ink2);">Workspace, repos, integrations, team.</p>
+          <div class="grid md:grid-cols-3 gap-6 mt-8">
+            <div class="card p-5">
+              <div class="label-tight mb-2">Connected repos</div>
+              <div class="kpi-num small">23</div>
+              <p class="text-[12.5px] mt-2" style="color: var(--ink2);">All under the acme-dev GitHub org. Read-only access.</p>
+            </div>
+            <div class="card p-5">
+              <div class="label-tight mb-2">Team members</div>
+              <div class="kpi-num small">15</div>
+              <p class="text-[12.5px] mt-2" style="color: var(--ink2);">14 engineers + 1 admin. Engineer self-view enabled.</p>
+            </div>
+            <div class="card p-5">
+              <div class="label-tight mb-2">Plan</div>
+              <div class="kpi-num small" style="font-size: 22px;">Startup · $15/dev</div>
+              <p class="text-[12.5px] mt-2" style="color: var(--ink2);">Renews June 11. Audit log export available.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+</div>
+
+<!-- ============================================================
+     DEV PROFILE DRAWER
+     ============================================================ -->
+<div class="drawer-mask" id="drawer-mask"></div>
+<aside class="drawer" id="dev-drawer">
+  <div class="flex items-center justify-between px-6 py-4 border-b hairline">
+    <span class="label-tight">Developer profile</span>
+    <button class="iconbtn" id="drawer-close">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 3l10 10M13 3L3 13"/></svg>
+    </button>
+  </div>
+  <div class="scroll" style="flex: 1; min-height: 0;">
+    <div class="px-6 py-6" id="drawer-body">
+      <!-- injected -->
+    </div>
+  </div>
+</aside>
+
+<script>
+// ============================================================
+// MOCK DATA
+// ============================================================
+const devs = [
+  { rank:'01', name:'Aanya Sharma', handle:'@aanya', role:'Staff · Platform', avatar:'AS', color:0, score:94, impact:96, quality:91, collab:97, consist:92, week:'Shipped 4 / Reviewed 11', sparkD:'M0 12 L8 10 L16 11 L24 8 L32 7 L40 6 L48 4 L56 5', delta:'+3' },
+  { rank:'02', name:'Priya Nair',   handle:'@priya', role:'Senior · Billing',  avatar:'PN', color:4, score:88, impact:84, quality:93, collab:90, consist:85, week:'Shipped 3 / Reviewed 8',  sparkD:'M0 14 L8 12 L16 10 L24 9 L32 11 L40 8 L48 7 L56 6',  delta:'+1' },
+  { rank:'03', name:'Marcus Chen',  handle:'@marcus',role:'Senior · Infra',    avatar:'MC', color:5, score:84, impact:88, quality:82, collab:78, consist:88, week:'Shipped 2 / Reviewed 4',  sparkD:'M0 8 L8 9 L16 7 L24 8 L32 7 L40 9 L48 8 L56 6',   delta:'—'  },
+  { rank:'04', name:'Raj Patel',    handle:'@raj',   role:'Senior · Auth',     avatar:'RP', color:3, score:81, impact:79, quality:85, collab:80, consist:80, week:'Shipped 3 / Reviewed 6',  sparkD:'M0 10 L8 11 L16 9 L24 10 L32 8 L40 7 L48 9 L56 7',  delta:'+2' },
+  { rank:'05', name:'Sam Park',     handle:'@sam',   role:'Mid · Mobile',      avatar:'SP', color:7, score:76, impact:74, quality:78, collab:72, consist:79, week:'Shipped 4 / Reviewed 5',  sparkD:'M0 13 L8 11 L16 12 L24 9 L32 10 L40 8 L48 9 L56 8',  delta:'+5' },
+  { rank:'06', name:'Jordan Lee',   handle:'@jordan',role:'Senior · API',      avatar:'JL', color:6, score:74, impact:78, quality:69, collab:75, consist:74, week:'Shipped 2 / Reviewed 7',  sparkD:'M0 11 L8 10 L16 12 L24 11 L32 9 L40 10 L48 8 L56 9',  delta:'-1' },
+  { rank:'07', name:'Noor Khan',    handle:'@noor',  role:'Senior · Data',     avatar:'NK', color:2, score:72, impact:76, quality:74, collab:68, consist:70, week:'Shipped 1 / Reviewed 4',  sparkD:'M0 9 L8 8 L16 10 L24 9 L32 11 L40 10 L48 11 L56 12',  delta:'-3' },
+  { rank:'08', name:'Diego Ortiz',  handle:'@diego', role:'Mid · API',         avatar:'DO', color:1, score:69, impact:65, quality:73, collab:70, consist:68, week:'Shipped 2 / Reviewed 3',  sparkD:'M0 12 L8 11 L16 11 L24 10 L32 11 L40 10 L48 9 L56 10', delta:'+1' },
+  { rank:'09', name:'Mia Tanaka',   handle:'@mia',   role:'Mid · Mobile',      avatar:'MT', color:0, score:67, impact:62, quality:71, collab:68, consist:67, week:'Shipped 1 / Reviewed 3',  sparkD:'M0 10 L8 11 L16 10 L24 11 L32 11 L40 12 L48 11 L56 11', delta:'—'  },
+  { rank:'10', name:'Eliot Brun',   handle:'@eliot', role:'Junior · Web',      avatar:'EB', color:4, score:62, impact:58, quality:64, collab:65, consist:60, week:'Shipped 1 / Reviewed 2',  sparkD:'M0 11 L8 11 L16 12 L24 11 L32 12 L40 12 L48 13 L56 12', delta:'+4' },
+];
+
+const repos = [
+  { name:'billing-svc',     status:'hot',     openPRs:12, sum:'3 stuck PRs · cycle time up 40% · 5 active',  spark:[3,5,2,4,6,7,4,8,5,9,7,4] },
+  { name:'hydra-api',       status:'hot',     openPRs:8,  sum:'Test flakiness up 2.4× · 6 active',           spark:[4,3,5,4,6,5,7,6,5,7,8,5] },
+  { name:'auth-svc',        status:'ok',      openPRs:3,  sum:'PKCE rollout shipped · 4 active',             spark:[5,7,8,6,9,7,8,9,7,8,6,7] },
+  { name:'mobile-app',      status:'ok',      openPRs:5,  sum:'Onboarding rewrite shipped · 3 active',       spark:[2,3,4,3,5,4,5,6,4,5,6,5] },
+  { name:'web-marketing',   status:'neutral', openPRs:1,  sum:'Maintenance · 1 contributor',                 spark:[1,0,2,1,1,0,1,2,0,1,1,0] },
+  { name:'infra-terraform', status:'ok',      openPRs:2,  sum:'Postgres 16 migration · 2 active',            spark:[3,2,4,3,3,4,5,3,4,3,4,3] },
+  { name:'admin-tools',     status:'ok',      openPRs:2,  sum:'Refund flow shipped · 2 active',              spark:[1,2,1,2,3,2,3,2,3,2,3,4] },
+  { name:'cli',             status:'neutral', openPRs:1,  sum:'Two ergonomics improvements · 1 active',      spark:[0,1,0,1,1,0,1,0,1,0,1,1] },
+  { name:'docs-site',       status:'neutral', openPRs:0,  sum:'No activity in 8 days',                       spark:[1,0,0,1,0,1,0,0,0,0,0,0] },
+  { name:'analytics-pipe',  status:'stuck',   openPRs:4,  sum:'1 stuck branch · last merge 14 days ago',     spark:[2,1,2,1,1,0,0,0,1,0,0,0] },
+  { name:'design-tokens',   status:'ok',      openPRs:1,  sum:'Quiet week · 2 active',                       spark:[1,1,2,1,1,2,1,2,2,1,2,1] },
+];
+
+const contributors = [
+  { rank:'01', name:'Aanya Sharma', score:94, color:0, avatar:'AS', delta:'+3', spark:'M0 12 L8 10 L16 11 L24 8 L32 7 L40 6 L48 4 L56 5' },
+  { rank:'02', name:'Priya Nair',   score:88, color:4, avatar:'PN', delta:'+1', spark:'M0 14 L8 12 L16 10 L24 9 L32 11 L40 8 L48 7 L56 6' },
+  { rank:'03', name:'Marcus Chen',  score:84, color:5, avatar:'MC', delta:'—',  spark:'M0 8 L8 9 L16 7 L24 8 L32 7 L40 9 L48 8 L56 6' },
+  { rank:'04', name:'Raj Patel',    score:81, color:3, avatar:'RP', delta:'+2', spark:'M0 10 L8 11 L16 9 L24 10 L32 8 L40 7 L48 9 L56 7' },
+  { rank:'05', name:'Sam Park',     score:76, color:7, avatar:'SP', delta:'+5', spark:'M0 13 L8 11 L16 12 L24 9 L32 10 L40 8 L48 9 L56 8' },
+];
+
+// ============================================================
+// RENDER: contributor list (dashboard right column)
+// ============================================================
+const contribListEl = document.getElementById('contrib-list');
+contribListEl.innerHTML = contributors.map(c => `
+  <div class="row" style="grid-template-columns: 28px auto 1fr auto auto; gap: 12px; padding: 11px 0;">
+    <span class="num text-[12px]" style="color: var(--ink3);">${c.rank}</span>
+    <span class="avatar sm color-${c.color}">${c.avatar}</span>
+    <span class="text-[13.5px]" style="color: var(--ink);">${c.name}</span>
+    <svg class="spark" width="60" height="20" viewBox="0 0 60 20"><path d="${c.spark}"/><circle cx="56" cy="${c.spark.split('L').slice(-1)[0].split(' ')[1]}" r="1.6"/></svg>
+    <span class="num text-[13px]" style="min-width: 38px; text-align: right;">${c.score}<span class="text-[10.5px]" style="color: var(--ink3); margin-left: 4px;">${c.delta}</span></span>
+  </div>
+`).join('');
+
+// ============================================================
+// RENDER: repo pills (dashboard) + repo list (repos view)
+// ============================================================
+const repoPills = document.getElementById('repo-pills');
+repoPills.innerHTML = repos.map(r => `
+  <button class="flex items-center gap-2 surface border hairline rounded-md px-2.5 py-1.5 text-[12.5px] hover:border-[var(--ink2)] transition-colors"
+          data-repo="${r.name}">
+    <span class="dot ${r.status}"></span>
+    <span class="mono" style="color: var(--ink);">${r.name}</span>
+    <span class="mono text-[10.5px]" style="color: var(--ink3);">${r.openPRs} open</span>
+  </button>
+`).join('');
+
+const repoListEl = document.getElementById('repo-list');
+repoListEl.innerHTML = repos.map(r => {
+  const max = Math.max(...r.spark, 1);
+  const bars = r.spark.map((v,i) => `<div style="height: ${(v/max)*100}%" class="${i === r.spark.length-1 ? 'hi' : ''}"></div>`).join('');
+  return `
+  <div class="row" data-repo="${r.name}" style="grid-template-columns: 14px 1fr 1.4fr 90px auto; gap: 18px; padding: 14px 18px; cursor: pointer;">
+    <span class="dot ${r.status}"></span>
+    <div>
+      <div class="mono text-[14.5px]" style="color: var(--ink); font-weight: 500;">${r.name}</div>
+      <div class="text-[11.5px]" style="color: var(--ink3); margin-top: 2px;">Private · ${r.openPRs} open PRs</div>
+    </div>
+    <div class="text-[13px]" style="color: var(--ink2);">${r.sum}</div>
+    <div class="bars" style="height: 24px;">${bars}</div>
+    <span class="text-[12px]" style="color: var(--ink2);">View →</span>
+  </div>`;
+}).join('');
+
+// ============================================================
+// RENDER: leaderboard table
+// ============================================================
+const tbody = document.getElementById('dev-tbody');
+tbody.innerHTML = devs.map(d => `
+  <tr data-dev="${d.handle}">
+    <td class="num" style="color: var(--ink3);">${d.rank}</td>
+    <td>
+      <div class="flex items-center gap-2.5">
+        <span class="avatar md color-${d.color}">${d.avatar}</span>
+        <div>
+          <div class="text-[13.5px]" style="color: var(--ink);">${d.name}</div>
+          <div class="mono text-[10.5px]" style="color: var(--ink3); letter-spacing:.04em;">${d.role} · ${d.handle}</div>
+        </div>
+      </div>
+    </td>
+    <td class="right">
+      <div class="num text-[18px]" style="color: var(--ink);">${d.score}<span class="text-[10.5px]" style="color: var(--ink3); margin-left: 6px;">${d.delta}</span></div>
+      <div class="mini-track" style="margin-left: auto; margin-top: 4px;"><span style="width: ${d.score}%"></span></div>
+    </td>
+    <td>
+      <svg class="spark" width="60" height="20" viewBox="0 0 60 20"><path d="${d.sparkD}"/><circle cx="56" cy="${d.sparkD.split('L').slice(-1)[0].split(' ')[1]}" r="1.6"/></svg>
+    </td>
+    <td class="right num">${d.impact}</td>
+    <td class="right num">${d.quality}</td>
+    <td class="right num">${d.collab}</td>
+    <td class="right num">${d.consist}</td>
+    <td>
+      <div class="text-[12.5px]" style="color: var(--ink2);">${d.week}</div>
+    </td>
+  </tr>
+`).join('');
+
+// ============================================================
+// RENDER: recent activity
+// ============================================================
+const activityEl = document.getElementById('activity-list');
+const events = [
+  { who:'Aanya Sharma', color:0, avatar:'AS', what:'merged', detail:'#1247 oauth-pkce in <span class="mono text-[12.5px]">auth-svc</span>', when:'12m ago' },
+  { who:'Sam Park',     color:7, avatar:'SP', what:'opened', detail:'#828 receipt PDFs · i18n in <span class="mono text-[12.5px]">billing-svc</span>', when:'1h ago' },
+  { who:'Priya Nair',   color:4, avatar:'PN', what:'reviewed', detail:'#823 webhook signature verification', when:'2h ago' },
+  { who:'Marcus Chen',  color:5, avatar:'MC', what:'pushed', detail:'4 commits to <span class="mono text-[12.5px]">marcus/spike-clickhouse-eval</span>', when:'4h ago' },
+  { who:'Raj Patel',    color:3, avatar:'RP', what:'commented on', detail:'#812 webhook retries with idempotency keys', when:'yesterday' },
+  { who:'Aanya Sharma', color:0, avatar:'AS', what:'requested review on', detail:'#824 usage-meter contract types', when:'yesterday' },
+  { who:'Noor Khan',    color:2, avatar:'NK', what:'pushed', detail:'2 commits to <span class="mono text-[12.5px]">noor/schema-migration-v2</span>', when:'mon' },
+];
+activityEl.innerHTML = events.map(e => `
+  <div class="row" style="grid-template-columns: 28px 1fr auto; gap: 12px; padding: 12px 18px;">
+    <span class="avatar sm color-${e.color}">${e.avatar}</span>
+    <span class="text-[13.5px]"><strong style="font-weight:500;">${e.who}</strong> <span style="color: var(--ink2);">${e.what}</span> ${e.detail}</span>
+    <span class="mono text-[11px]" style="color: var(--ink3);">${e.when}</span>
+  </div>
+`).join('');
+
+// ============================================================
+// COUNT-UP animation
+// ============================================================
+function countUp() {
+  document.querySelectorAll('.count-up').forEach(el => {
+    const target = parseInt(el.dataset.target || el.textContent || '0', 10);
+    const dur = 600;
+    const start = performance.now();
+    const tick = (t) => {
+      const p = Math.min(1, (t - start) / dur);
+      const eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = Math.round(target * eased);
+      if (p < 1) requestAnimationFrame(tick);
+      else el.textContent = target;
+    };
+    requestAnimationFrame(tick);
+  });
+}
+countUp();
+
+// ============================================================
+// VIEW switching
+// ============================================================
+const navItems = document.querySelectorAll('[data-route]');
+const views = document.querySelectorAll('.view');
+const crumbHere = document.getElementById('crumb-here');
+
+const routeTitles = {
+  dashboard: 'Dashboard',
+  leaderboard: 'Developers',
+  repos: 'Repos',
+  'repo-detail': 'billing-svc',
+  ask: 'Ask anything',
+  digest: 'Weekly digest',
+  alerts: 'Alerts',
+  activity: 'Recent activity',
+  settings: 'Settings',
+};
+
+function setRoute(route) {
+  views.forEach(v => v.classList.toggle('active', v.dataset.view === route));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.route === route));
+  crumbHere.textContent = routeTitles[route] || 'Dashboard';
+  document.getElementById('scroll-root').scrollTop = 0;
+
+  if (route === 'dashboard') countUp();
+  if (route === 'ask' && !askBooted) { askBooted = true; setTimeout(() => runAsk('What is Aanya working on?'), 250); }
+}
+
+navItems.forEach(item => item.addEventListener('click', (e) => {
+  e.preventDefault();
+  const route = item.dataset.route;
+  if (route) setRoute(route);
+}));
+
+// repo pill / row click → repo-detail
+document.querySelectorAll('[data-repo]').forEach(el => {
+  el.addEventListener('click', () => setRoute('repo-detail'));
+});
+
+// ============================================================
+// DEV DRAWER
+// ============================================================
+const drawer = document.getElementById('dev-drawer');
+const drawerMask = document.getElementById('drawer-mask');
+const drawerBody = document.getElementById('drawer-body');
+const drawerClose = document.getElementById('drawer-close');
+
+function openDevDrawer(handle) {
+  const d = devs.find(x => x.handle === handle) || devs[0];
+  drawerBody.innerHTML = `
+    <div class="flex items-start justify-between mb-6">
+      <div class="flex items-start gap-4">
+        <span class="avatar lg color-${d.color}">${d.avatar}</span>
+        <div>
+          <h2 class="display text-[28px] leading-tight" style="font-family:'Instrument Serif';">${d.name}</h2>
+          <p class="text-[12.5px]" style="color: var(--ink2);">${d.role}</p>
+          <p class="mono text-[11px] mt-1" style="color: var(--ink3);">${d.handle} · github.com/acme-dev</p>
+        </div>
+      </div>
+      <div class="text-right">
+        <div class="num text-[44px]" style="line-height: 1;">${d.score}</div>
+        <div class="mono text-[11px]" style="color: var(--accent);">▲ ${d.delta} this week</div>
+      </div>
+    </div>
+
+    <div class="card p-5 mb-6">
+      <div class="label-tight mb-3">Score breakdown</div>
+      <div class="bar-row"><span class="text-[13px]" style="color: var(--ink2);">Impact</span><div class="bar-track"><div class="bar-fill grow-x" style="width: ${d.impact}%; transform-origin:left;"></div></div><span class="num text-right">${d.impact}</span></div>
+      <div class="bar-row"><span class="text-[13px]" style="color: var(--ink2);">Quality</span><div class="bar-track"><div class="bar-fill grow-x" style="width: ${d.quality}%;"></div></div><span class="num text-right">${d.quality}</span></div>
+      <div class="bar-row"><span class="text-[13px]" style="color: var(--ink2);">Collaboration</span><div class="bar-track"><div class="bar-fill grow-x" style="width: ${d.collab}%;"></div></div><span class="num text-right">${d.collab}</span></div>
+      <div class="bar-row"><span class="text-[13px]" style="color: var(--ink2);">Consistency</span><div class="bar-track"><div class="bar-fill grow-x" style="width: ${d.consist}%;"></div></div><span class="num text-right">${d.consist}</span></div>
+      <p class="italic-serif text-[15px] mt-5 leading-snug" style="color: var(--ink2);">"${d.name.split(' ')[0]} consistently ships infrastructure improvements with high test coverage. Reviews are substantive but slower than the team median (avg 2.1 days)."</p>
+    </div>
+
+    <div class="mb-6">
+      <div class="label-tight mb-3">Active branches</div>
+      <div class="space-y-0">
+        <div class="row" style="grid-template-columns: 1fr auto auto; padding: 9px 0;">
+          <span class="mono text-[12.5px]">${d.handle.replace('@','')}/feat-usage-meter</span>
+          <span class="mono text-[11px]" style="color: var(--ink3);">9d · 14 commits</span>
+          <span class="status-line"><span class="dot stuck"></span> No PR yet</span>
+        </div>
+        <div class="row" style="grid-template-columns: 1fr auto auto; padding: 9px 0;">
+          <span class="mono text-[12.5px]">${d.handle.replace('@','')}/oauth-pkce</span>
+          <span class="mono text-[11px]" style="color: var(--ink3);">2d · 6 commits</span>
+          <span class="status-line"><span class="dot accent"></span> In review</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="mb-6">
+      <div class="label-tight mb-3">Merged this week</div>
+      <ul class="space-y-2.5 text-[13.5px]">
+        <li class="flex gap-3"><a class="pill flex-shrink-0">#1247</a><span><span style="color: var(--ink);">PKCE rollout for OAuth.</span> <span style="color: var(--ink2);">Final piece of auth modernization — removes the legacy redirect path.</span></span></li>
+        <li class="flex gap-3"><a class="pill flex-shrink-0">#1252</a><span><span style="color: var(--ink);">SSO lockout edge case fix.</span> <span style="color: var(--ink2);">Stops loop when refresh token expires mid-flow.</span></span></li>
+        <li class="flex gap-3"><a class="pill flex-shrink-0">#1259</a><span><span style="color: var(--ink);">Stripe webhook retry refactor.</span> <span style="color: var(--ink2);">Moves retries onto the queue runner — in flight.</span></span></li>
+      </ul>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4 mb-6">
+      <div class="card p-4">
+        <div class="label-tight mb-2">Reviews given</div>
+        <div class="num text-[28px]">11</div>
+        <p class="text-[12px] mt-1" style="color: var(--ink2);">8 substantive · 3 nit</p>
+      </div>
+      <div class="card p-4">
+        <div class="label-tight mb-2">Reviews owed</div>
+        <div class="num text-[28px]" style="color: var(--hot);">5</div>
+        <p class="text-[12px] mt-1" style="color: var(--ink2);">2 over 48h</p>
+      </div>
+    </div>
+
+    <div class="card p-4" style="border-left: 2px solid var(--hot);">
+      <div class="label-tight mb-1.5">Workload signal</div>
+      <p class="text-[13px]" style="color: var(--ink2);">Currently <span class="num" style="color: var(--hot);">5 open PRs</span> + <span class="num" style="color: var(--hot);">5 reviews owed</span>. Above team median. Consider redistributing if it stays elevated through Wednesday.</p>
+    </div>
+  `;
+  drawer.classList.add('open');
+  drawerMask.classList.add('open');
+}
+
+document.querySelectorAll('#dev-tbody tr').forEach(tr => {
+  tr.addEventListener('click', () => openDevDrawer(tr.dataset.dev));
+});
+
+drawerClose.addEventListener('click', () => { drawer.classList.remove('open'); drawerMask.classList.remove('open'); });
+drawerMask.addEventListener('click', () => { drawer.classList.remove('open'); drawerMask.classList.remove('open'); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { drawer.classList.remove('open'); drawerMask.classList.remove('open'); } });
+
+// ============================================================
+// THEME TOGGLE
+// ============================================================
+const themeBtn = document.getElementById('theme-toggle');
+const themeIcon = document.getElementById('theme-icon');
+const setIcon = (dark) => {
+  themeIcon.innerHTML = dark
+    ? '<circle cx="8" cy="8" r="3"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.5 3.5l1.5 1.5M11 11l1.5 1.5M3.5 12.5l1.5-1.5M11 5l1.5-1.5"/>'
+    : '<path d="M13 9.5A5.5 5.5 0 0 1 6.5 3 5 5 0 1 0 13 9.5z"/>';
+};
+themeBtn.addEventListener('click', () => {
+  const dark = document.documentElement.classList.toggle('dark');
+  setIcon(dark);
+  try { localStorage.setItem('pulse-theme', dark ? 'dark' : 'light'); } catch (e) {}
+});
+(function initTheme() {
+  let dark = false;
+  try { dark = localStorage.getItem('pulse-theme') === 'dark'; } catch (e) {}
+  if (dark) document.documentElement.classList.add('dark');
+  setIcon(dark);
+})();
+
+// ============================================================
+// ASK ANYTHING
+// ============================================================
+let askBooted = false;
+let isStreaming = false;
+const askThread = document.getElementById('ask-thread-body');
+const askScroll = document.getElementById('ask-scroll');
+const askInput = document.getElementById('ask-input');
+const askForm = document.getElementById('composer');
+const sourcesList = document.getElementById('sources-list');
+const sourcesCount = document.getElementById('sources-count');
+
+const askAnswers = {
+  "What is Aanya working on?": {
+    tools: [
+      'Reading auth-svc and billing-svc metadata…',
+      'git log --author=aanya --since=7d',
+      'Cross-referencing open PRs and stuck branches',
+      'Composing answer with citations',
+    ],
+    answer: () => `
+      <p>Aanya is the primary author on <a class="pill">#1247 · oauth-pkce</a> (merged Tuesday) and is currently deep in <a class="pill">#1259 · billing/stripe-webhook-retries</a> &mdash; she's pushed <span class="num">14 commits</span> since Monday but hasn't requested review yet.</p>
+      <p class="muted">One branch looks stuck: <span class="filepath">aanya/feat-usage-meter</span> &mdash; last push 9 days ago, no PR opened. She's also reviewed three of Marcus's PRs while he was on PTO.</p>`,
+    sources: [
+      { kind:'PULL REQUESTS', items:[
+        { t:'#1247 · oauth-pkce', d:'auth-svc · merged Tue' },
+        { t:'#1259 · stripe-webhook-retries', d:'billing-svc · in flight' },
+        { t:'#824 · usage-meter contract types', d:'billing-svc · in review' },
+      ]},
+      { kind:'FILES', items:[
+        { t:'apps/auth/oauth/pkce.ts', d:'+182 / -47 last 7d' },
+        { t:'apps/billing/webhooks/retries.ts', d:'+96 / -22 last 3d' },
+      ]},
+      { kind:'DEVS', items:[
+        { t:'Aanya Sharma', d:'@aanya · Staff · Platform' },
+      ]},
+    ],
+    followups: ['Summarize the diff on #1259','Draft a nudge for the stuck branch','Show her review load this week'],
+  },
+  "Why is the billing repo slow?": {
+    tools: [
+      'Querying review_latency_p50 by repo, last 14d',
+      'Pulling reviewer set for billing-svc',
+      'git log --merges billing-svc --since=14d',
+      'Generating chart…',
+    ],
+    answer: () => `
+      <p>Two named reviewers carry <span class="num">84%</span> of <span class="filepath">billing-svc</span> reviews (Marcus and Priya). Priya is on call this week, Marcus is on PTO &mdash; review latency on that repo jumped from <span class="num">6h</span> to <span class="num">38h</span>.</p>
+      <div class="card p-4 my-4">
+        <div class="flex items-center justify-between mb-3"><span class="label-tight">Review latency · billing-svc · 14d</span><span class="mono text-[10.5px]" style="color: var(--ink3);">p50, hours</span></div>
+        <div class="bars" style="height: 60px;">
+          <div style="height: 18%"></div><div style="height: 22%"></div><div style="height: 16%"></div>
+          <div style="height: 24%"></div><div style="height: 20%"></div><div style="height: 28%"></div>
+          <div style="height: 30%"></div><div style="height: 26%"></div><div style="height: 35%"></div>
+          <div style="height: 70%" class="hi"></div><div style="height: 84%" class="hi"></div>
+          <div style="height: 92%" class="hi"></div><div style="height: 100%" class="hi"></div>
+          <div style="height: 88%" class="hi"></div>
+        </div>
+        <div class="flex justify-between mt-2 mono text-[10.5px]" style="color: var(--ink3);"><span>apr 27</span><span>may 04</span><span>may 10</span></div>
+      </div>
+      <p class="muted">Three PRs are blocked on review: <a class="pill">#812</a> <a class="pill">#814</a> <a class="pill">#819</a>. Want me to suggest a temporary CODEOWNERS reshuffle?</p>`,
+    sources: [
+      { kind:'METRICS', items:[
+        { t:'Review latency p50', d:'billing-svc · 6h → 38h' },
+        { t:'Reviewer concentration', d:'2 reviewers · 84% of approvals' },
+      ]},
+      { kind:'PULL REQUESTS', items:[
+        { t:'#812 · webhook idempotency', d:'9d in review' },
+        { t:'#814 · invoice generator refactor', d:'8d in review' },
+        { t:'#819 · dunning v2 dispatcher', d:'7d · changes requested' },
+      ]},
+      { kind:'DEVS', items:[
+        { t:'Marcus Chen', d:'@marcus · on PTO' },
+        { t:'Priya Nair', d:'@priya · on call' },
+      ]},
+    ],
+    followups: ['Suggest a CODEOWNERS reshuffle','Show the three blocked PRs','Compare to last sprint'],
+  },
+  "Find every place we still call stripe.charge() — are they still active?": {
+    tools: [
+      'git grep -n "stripe.charge(" HEAD',
+      'Reading 4 matched files',
+      'Cross-referencing prod traffic last 30d',
+      'Composing audit',
+    ],
+    answer: () => `
+      <p>Five call sites remain. Three are reachable from production code paths; two are inside tests or feature-flagged branches that haven't shipped in 6+ months.</p>
+      <div class="codeblock my-3">
+        <div class="flex items-center justify-between mb-3 opacity-60"><span>git grep -n "stripe.charge(" HEAD</span><span>5 results · 4 files</span></div>
+        <div class="space-y-1.5">
+          <div><span style="color:#7AAE6A">apps/billing/src/legacy/checkout.ts</span><span style="opacity:.5">:142</span> &nbsp;<span style="opacity:.85">await stripe.charge({ amount, source }) // ACTIVE — fallback path, ~30/day</span></div>
+          <div><span style="color:#7AAE6A">apps/billing/src/legacy/checkout.ts</span><span style="opacity:.5">:217</span> &nbsp;<span style="opacity:.85">stripe.charge({ amount, source: token })   // ACTIVE — admin refund flow</span></div>
+          <div><span style="color:#7AAE6A">apps/api/src/jobs/retry-charge.ts</span><span style="opacity:.5">:58</span>  &nbsp;<span style="opacity:.85">return stripe.charge({ amount, source: src }) // ACTIVE — retry queue</span></div>
+          <div><span style="color:#E5B341">apps/billing/test/legacy.spec.ts</span><span style="opacity:.5">:33</span>   &nbsp;<span style="opacity:.65">stripe.charge({ amount: 100, source: 'tok' }) // test fixture</span></div>
+          <div><span style="color:#E5B341">apps/api/src/experimental/dunning.ts</span><span style="opacity:.5">:91</span> &nbsp;<span style="opacity:.65">if (FLAG_DUNNING_V2_OFF) stripe.charge(…) // dead since 2024-11</span></div>
+        </div>
+      </div>
+      <p class="muted">The retry queue path is the riskiest to migrate &mdash; it serves dunning fallback and runs ~120 times/day. Want me to draft the migration PR?</p>`,
+    sources: [
+      { kind:'FILES', items:[
+        { t:'apps/billing/src/legacy/checkout.ts', d:'2 references · :142 :217' },
+        { t:'apps/api/src/jobs/retry-charge.ts',   d:'1 reference · :58' },
+        { t:'apps/billing/test/legacy.spec.ts',     d:'1 reference · test fixture' },
+        { t:'apps/api/src/experimental/dunning.ts', d:'1 reference · feature-flagged' },
+      ]},
+      { kind:'METRICS', items:[
+        { t:'Active call rate', d:'~150/day across 3 paths' },
+      ]},
+    ],
+    followups: ['Draft the migration PR','Who last touched these files?','Open the dead-code references'],
+  },
+};
+
+const askFallback = (q) => ({
+  tools: ['Understanding question intent','Pulling relevant metadata','Composing answer with citations'],
+  answer: () => `<p>Here's what I'd return for <span class="italic-serif">"${q}"</span> &mdash; in your live workspace I'd cite specific PRs, files, and authors here.</p><p class="muted">Try one of the suggested questions to see a real walkthrough with sources.</p>`,
+  sources: [],
+  followups: ['What did we ship last week?','Why is the billing repo slow?'],
+});
+
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+function renderSources(groups) {
+  const total = groups.reduce((a,g) => a + g.items.length, 0);
+  sourcesCount.textContent = total + ' items';
+  if (!groups.length) {
+    sourcesList.innerHTML = `<div class="px-4 py-6 text-[12.5px]" style="color: var(--ink3);">Sources will appear here as the agent works.</div>`;
+    return;
+  }
+  sourcesList.innerHTML = groups.map(g => `
+    <div>
+      <div class="px-4 pt-4 pb-2 label-tight">${g.kind}</div>
+      ${g.items.map(it => `
+        <div class="rail-item">
+          <div class="text-[13px] mono" style="color: var(--ink); letter-spacing:-0.005em;">${it.t}</div>
+          <div class="text-[11.5px] mt-0.5" style="color: var(--ink3);">${it.d}</div>
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+async function runAsk(q) {
+  if (isStreaming) return;
+  isStreaming = true;
+
+  // Set the question header above (replace any existing)
+  const header = document.querySelector('.ask-thread h1');
+  if (header) header.innerHTML = `<span class="italic-serif" style="color: var(--ink2);">"</span>${q}<span class="italic-serif" style="color: var(--ink2);">"</span>`;
+
+  // Push user question + ai container
+  askThread.innerHTML = '';
+  const data = askAnswers[q] || askFallback(q);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'fade-in mb-12';
+  wrap.innerHTML = `
+    <div id="tool-trace" class="mb-4"></div>
+    <div id="ai-answer" class="ai-prose" style="opacity: 0; transition: opacity .35s ease;"></div>
+  `;
+  askThread.appendChild(wrap);
+
+  const trace = wrap.querySelector('#tool-trace');
+  for (let i = 0; i < data.tools.length; i++) {
+    const line = document.createElement('div');
+    line.className = 'tool-line fade-in';
+    line.innerHTML = `<span class="pdot"></span><span>${data.tools[i]}</span>`;
+    trace.appendChild(line);
+    askScroll.scrollTop = askScroll.scrollHeight;
+    await sleep(420 + Math.random() * 240);
+    line.classList.add('done');
+  }
+
+  // Collapse trace to a summary line
+  await sleep(220);
+  const totalMs = (data.tools.length * 0.6 + 0.8).toFixed(1);
+  trace.innerHTML = `<a class="text-[11.5px]" style="color: var(--ink3);"><span class="dot ok" style="vertical-align: middle; margin-right: 6px;"></span>Used ${data.tools.length} tools · ${totalMs}s · view trace →</a>`;
+
+  // Render sources progressively
+  renderSources(data.sources);
+
+  // Stream answer
+  const ans = wrap.querySelector('#ai-answer');
+  ans.style.opacity = '1';
+  const full = data.answer();
+  // simple "type" effect by inserting in chunks
+  ans.innerHTML = '';
+  await sleep(160);
+  const chunks = full.match(/<[^>]+>|[^<]+/g) || [full];
+  for (const c of chunks) {
+    if (c.startsWith('<')) {
+      ans.insertAdjacentHTML('beforeend', c);
+    } else {
+      // type plain text in word groups for visible streaming
+      const words = c.split(/(\s+)/);
+      for (const w of words) {
+        ans.insertAdjacentText('beforeend', w);
+        if (w.trim().length) {
+          await sleep(8);
+          askScroll.scrollTop = askScroll.scrollHeight;
+        }
+      }
+    }
+  }
+
+  // Followups
+  if (data.followups && data.followups.length) {
+    const fu = document.createElement('div');
+    fu.className = 'mt-5 flex flex-wrap gap-1.5';
+    fu.innerHTML = data.followups.map(f => `<button class="chip" data-followup>${f}</button>`).join('');
+    ans.appendChild(fu);
+    fu.querySelectorAll('[data-followup]').forEach(b => b.addEventListener('click', () => runAsk(b.textContent)));
+  }
+
+  askScroll.scrollTop = askScroll.scrollHeight;
+  isStreaming = false;
+}
+
+// composer behaviour
+const autosize = () => { askInput.style.height = 'auto'; askInput.style.height = Math.min(askInput.scrollHeight, 200) + 'px'; };
+askInput.addEventListener('input', autosize);
+askInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); const v = askInput.value.trim(); if (v) { runAsk(v); askInput.value = ''; autosize(); } }
+});
+askForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const v = askInput.value.trim();
+  if (v) { runAsk(v); askInput.value = ''; autosize(); }
+});
+
+// suggestion + history clicks
+document.querySelectorAll('#ask-suggest .chip').forEach(c => c.addEventListener('click', () => runAsk(c.dataset.q)));
+document.querySelectorAll('.conv').forEach(c => c.addEventListener('click', () => {
+  document.querySelectorAll('.conv').forEach(x => x.classList.remove('active'));
+  c.classList.add('active');
+  if (c.dataset.q) runAsk(c.dataset.q);
+}));
+
+// new conversation
+document.getElementById('new-conv-btn').addEventListener('click', () => {
+  askThread.innerHTML = '';
+  document.querySelector('.ask-thread h1').innerHTML = '<span class="italic-serif" style="color: var(--ink2);">"</span>What would you like to know?<span class="italic-serif" style="color: var(--ink2);">"</span>';
+  renderSources([]);
+  askInput.focus();
+});
+
+// Global search routes question-shaped queries to Ask
+const globalSearch = document.getElementById('global-search');
+globalSearch.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    const v = globalSearch.value.trim();
+    if (!v) return;
+    if (v.includes('?') || v.length > 30) {
+      setRoute('ask');
+      setTimeout(() => runAsk(v), 200);
+      globalSearch.value = '';
+    }
+  }
+});
+
+// initial sources placeholder
+renderSources([]);
+
+// ============================================================
+// Animate sparklines on first render (subtle stroke-dash)
+// ============================================================
+document.querySelectorAll('.spark path').forEach(p => {
+  try {
+    const len = p.getTotalLength();
+    p.style.strokeDasharray = len;
+    p.style.strokeDashoffset = len;
+    p.style.transition = 'stroke-dashoffset .6s ease-out';
+    requestAnimationFrame(() => requestAnimationFrame(() => { p.style.strokeDashoffset = 0; }));
+  } catch (e) {}
+});
+
+</script>
+</body>
+</html>

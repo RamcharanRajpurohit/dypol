@@ -1,0 +1,88 @@
+[project]
+name = "dypol-backend"
+version = "0.1.0"
+description = "FastAPI backend for DyPol.ai — engineering pulse over GitHub orgs"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "httpx>=0.27",
+    "motor>=3.6",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "python-dotenv>=1.0",
+    "orjson>=3.10",
+    "tenacity>=9.0",
+    "pyjwt[crypto]>=2.9",
+    "itsdangerous>=2.2",
+    "apscheduler>=3.10",
+    "google-genai>=0.4",
+    "groq>=0.13",
+    # ── Agent layer: provider-agnostic LLM orchestration via LangGraph ──
+    # One graph, any provider (Claude/OpenAI/Gemini/Groq) selected at runtime
+    # through init_chat_model. See app/agents/.
+    "langgraph>=0.2",
+    "langchain>=0.3",
+    "langchain-core>=0.3",
+    "langchain-openai>=0.2",
+    "langchain-google-genai>=2.0",
+    "langchain-groq>=0.2",
+    "langchain-anthropic>=0.3",
+    "langchain-community>=0.3",
+    "tiktoken>=0.8",
+    # ── Hybrid RAG (Part C). Lightweight core; heavy embedders are optional
+    # extras below. Default embedder is Gemini embed_content (no extra dep,
+    # reuses google-genai), so the base install stays lean and RAG works
+    # out of the box on the existing Gemini key. ──
+    "chromadb>=0.5",
+    "tree-sitter>=0.23",
+    "tree-sitter-language-pack>=0.4",
+    "rank-bm25>=0.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.7",
+    "mypy>=1.13",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+]
+# Online web search for the agent. Tavily (keyed, better) preferred; falls
+# back to DuckDuckGo (no key, via the `ddgs` package) when no Tavily key.
+web = [
+    "langchain-tavily>=0.1",
+    "ddgs>=4.0",
+]
+# Agent observability / evals — Langfuse tracing (optional; gated on keys).
+observability = [
+    "langfuse>=4.0",
+]
+# Fully-offline embeddings (no API key, no per-call cost). Pulls torch +
+# CUDA stack (~multi-GB) — opt-in only. Not needed when using Gemini/Voyage/
+# OpenAI embedders.
+embed-local = [
+    "sentence-transformers>=3.0",
+]
+# Code-specialized embeddings (voyage-code-3) — best quality for code RAG.
+embed-voyage = [
+    "voyageai>=0.3",
+]
+# Postgres + pgvector vector backend (scale path beyond Chroma).
+vector-pg = [
+    "pgvector>=0.3",
+    "psycopg[binary]>=3.2",
+]
+# Qdrant vector backend (scale path with tiered multitenancy).
+vector-qdrant = [
+    "qdrant-client>=1.12",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N", "SIM"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

@@ -1,0 +1,36 @@
+# ── Secrets ──────────────────────────────────────────────────────────
+# Nothing in here may ever reach a commit. The GitHub App private key and
+# the .env files carry live credentials; a push with either is unrecoverable
+# (forks, clones and caches keep the blob even after a history rewrite).
+*.pem
+*.key
+*.p12
+.env
+.env.*
+!.env.example
+!.env.local.example
+
+# ── Python ───────────────────────────────────────────────────────────
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# ── Node / Next.js ───────────────────────────────────────────────────
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# ── Local data / caches ──────────────────────────────────────────────
+.chroma/
+*.sqlite3
+.DS_Store

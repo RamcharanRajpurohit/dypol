@@ -1,0 +1,1238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DyPol — An AI engineering analyst, not another dashboard.</title>
+<meta name="description" content="DyPol is an AI analyst that reads your GitHub data and source code, then answers any question about your engineering org." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          bg:       '#FAF7F2',
+          surface:  '#FFFFFF',
+          ink:      '#14110D',
+          ink2:     '#5C544A',
+          hairline: '#E8E2D8',
+          accent:   '#0F766E',
+          codebg:   '#1F1B16',
+          codefg:   '#FAF7F2',
+        },
+        fontFamily: {
+          sans: ['Inter', 'ui-sans-serif', 'system-ui'],
+          serif: ['"Instrument Serif"', 'ui-serif', 'Georgia'],
+          mono: ['"JetBrains Mono"', 'ui-monospace', 'Menlo'],
+        },
+      }
+    }
+  }
+</script>
+
+<style>
+  :root {
+    --bg: #FAF7F2;
+    --surface: #FFFFFF;
+    --ink: #14110D;
+    --ink2: #5C544A;
+    --hairline: #E8E2D8;
+    --accent: #0F766E;
+    --codebg: #1F1B16;
+    --codefg: #FAF7F2;
+  }
+
+  html, body { background: var(--bg); color: var(--ink); }
+  body {
+    font-family: 'Inter', ui-sans-serif, system-ui;
+    font-size: 17px;
+    line-height: 1.55;
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Subtle grain on background */
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.7 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+
+  /* Type system */
+  .display { font-family: 'Instrument Serif', ui-serif, Georgia; font-weight: 400; letter-spacing: -0.015em; }
+  .italic-serif { font-family: 'Instrument Serif', ui-serif, Georgia; font-style: italic; font-weight: 400; }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, Menlo; }
+  .tabular { font-variant-numeric: tabular-nums; }
+
+  .eyebrow {
+    font-family: 'JetBrains Mono', ui-monospace, Menlo;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink2);
+    font-weight: 500;
+  }
+  .caption {
+    font-family: 'JetBrains Mono', ui-monospace, Menlo;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink2);
+  }
+
+  /* Hero headline */
+  .h-display {
+    font-family: 'Inter', ui-sans-serif, system-ui;
+    font-weight: 500;
+    font-size: clamp(44px, 6.6vw, 84px);
+    line-height: 0.98;
+    letter-spacing: -0.028em;
+  }
+  .h-display em {
+    font-family: 'Instrument Serif', ui-serif, Georgia;
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: -0.015em;
+  }
+  .h-section {
+    font-family: 'Inter', ui-sans-serif, system-ui;
+    font-weight: 500;
+    font-size: clamp(34px, 4.4vw, 54px);
+    line-height: 1.04;
+    letter-spacing: -0.022em;
+    text-wrap: balance;
+  }
+  .h-section em {
+    font-family: 'Instrument Serif', ui-serif, Georgia;
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+
+  /* Hairlines */
+  .hairline { border-color: var(--hairline); }
+  .rule-x { height: 1px; background: var(--hairline); width: 100%; }
+
+  /* Buttons */
+  .btn-primary {
+    display: inline-flex; align-items: center; gap: 10px;
+    background: var(--accent);
+    color: #F4FBF9;
+    font-weight: 500;
+    font-size: 14.5px;
+    padding: 11px 18px 12px;
+    border-radius: 4px;
+    letter-spacing: -0.005em;
+    transition: transform .35s cubic-bezier(.2,.7,.2,1), box-shadow .35s ease, background .25s ease;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06), 0 1px 0 rgba(0,0,0,0.04);
+    position: relative; overflow: hidden;
+  }
+  .btn-primary::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.65), transparent);
+    transform: translateX(-110%);
+    transition: transform .55s cubic-bezier(.2,.7,.2,1);
+  }
+  .btn-primary:hover { background: #0c635c; transform: translateY(-1px); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), 0 6px 18px -10px rgba(15,118,110,.5); }
+  .btn-primary:hover::after { transform: translateX(110%); }
+  .btn-primary svg { transition: transform .25s ease; }
+  .btn-primary:hover svg { transform: translateX(2px); }
+
+  .btn-quiet {
+    display: inline-flex; align-items: center; gap: 6px;
+    color: var(--ink);
+    font-size: 14.5px;
+    border-bottom: 1px solid var(--hairline);
+    padding-bottom: 2px;
+    transition: color .2s ease, border-color .2s ease;
+  }
+  .btn-quiet:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* Nav pill */
+  .nav {
+    transition: max-width .45s cubic-bezier(.2,.7,.2,1), padding .35s ease, background .35s ease, border-color .35s ease, box-shadow .35s ease, top .35s ease;
+  }
+  .nav.is-floating {
+    max-width: 880px;
+    background: rgba(250,247,242,0.72);
+    -webkit-backdrop-filter: saturate(140%) blur(14px);
+    backdrop-filter: saturate(140%) blur(14px);
+    border-color: var(--hairline);
+    box-shadow: 0 1px 0 rgba(20,17,13,0.02), 0 12px 30px -22px rgba(20,17,13,.18);
+    top: 14px;
+  }
+
+  /* Cursor-aware glow on hero card */
+  .cursor-glow { position: relative; }
+  .cursor-glow::before {
+    content: "";
+    position: absolute; inset: 0;
+    pointer-events: none;
+    background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgba(15,118,110,.07), transparent 55%);
+    opacity: 0; transition: opacity .4s ease;
+    border-radius: inherit;
+  }
+  .cursor-glow:hover::before { opacity: 1; }
+
+  /* Pill citation */
+  .cite {
+    display: inline-flex; align-items: baseline;
+    font-family: 'JetBrains Mono', ui-monospace, Menlo;
+    font-size: 12px;
+    color: var(--accent);
+    background: rgba(15,118,110,0.07);
+    border: 1px solid rgba(15,118,110,0.18);
+    padding: 1px 7px 2px;
+    border-radius: 999px;
+    letter-spacing: -0.005em;
+    transition: background .2s ease;
+  }
+  .cite:hover { background: rgba(15,118,110,0.13); }
+
+  /* Code blocks */
+  .codeblock {
+    background: var(--codebg);
+    color: var(--codefg);
+    font-family: 'JetBrains Mono', ui-monospace, Menlo;
+    font-size: 12.5px;
+    line-height: 1.65;
+    border-radius: 6px;
+  }
+  .codedot {
+    width: 9px; height: 9px; border-radius: 999px; display: inline-block;
+    background: rgba(255,255,255,0.18);
+  }
+
+  /* Streaming caret */
+  .caret { display: inline-block; width: 7px; height: 1em; background: var(--accent); vertical-align: -2px; margin-left: 2px; animation: blink 1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* Entrance animations */
+  .reveal { opacity: 0; transform: translateY(14px); transition: opacity .8s ease, transform .8s cubic-bezier(.2,.7,.2,1); }
+  .reveal.in { opacity: 1; transform: none; }
+  .stagger > * { opacity: 0; transform: translateY(10px); transition: opacity .6s ease, transform .6s cubic-bezier(.2,.7,.2,1); }
+  .stagger.in > * { opacity: 1; transform: none; }
+  .stagger.in > *:nth-child(1) { transition-delay: 0ms; }
+  .stagger.in > *:nth-child(2) { transition-delay: 120ms; }
+  .stagger.in > *:nth-child(3) { transition-delay: 240ms; }
+  .stagger.in > *:nth-child(4) { transition-delay: 360ms; }
+  .stagger.in > *:nth-child(5) { transition-delay: 480ms; }
+
+  /* Underline link */
+  .ulink { position: relative; }
+  .ulink::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: -3px; height: 1px;
+    background: currentColor; transform: scaleX(0); transform-origin: left;
+    transition: transform .3s cubic-bezier(.2,.7,.2,1);
+  }
+  .ulink:hover::after { transform: scaleX(1); }
+
+  /* Primitive row */
+  .prim { display: grid; grid-template-columns: 220px 1fr 80px; align-items: baseline; gap: 32px; padding: 18px 0; border-top: 1px solid var(--hairline); transition: background .25s ease, padding-left .25s ease; }
+  .prim:hover { background: rgba(20,17,13,0.018); padding-left: 8px; }
+  .prim:last-child { border-bottom: 1px solid var(--hairline); }
+  .prim .name { font-family: 'JetBrains Mono', ui-monospace, Menlo; font-size: 14px; color: var(--ink); }
+  .prim .num  { font-family: 'JetBrains Mono', ui-monospace, Menlo; font-size: 11px; color: var(--ink2); letter-spacing: 0.12em; text-align: right; }
+  @media (max-width: 720px) {
+    .prim { grid-template-columns: 1fr; gap: 6px; }
+    .prim .num { display: none; }
+  }
+
+  /* FAQ */
+  .faq-q { font-family: 'Instrument Serif', ui-serif, Georgia; font-style: italic; font-weight: 400; font-size: 28px; line-height: 1.2; letter-spacing: -0.005em; }
+
+  /* Status dot */
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 999px; background: #16a34a;
+    box-shadow: 0 0 0 0 rgba(22,163,74,0.45);
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(22,163,74,.35); }
+    50% { box-shadow: 0 0 0 6px rgba(22,163,74,0); }
+  }
+
+  /* Selection */
+  ::selection { background: rgba(15,118,110,.18); color: var(--ink); }
+
+  /* Container */
+  .container-x { max-width: 1240px; margin-inline: auto; padding-inline: 28px; }
+  @media (min-width: 1024px) { .container-x { padding-inline: 48px; } }
+
+  /* Video placeholder */
+  .video-placeholder {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    background: linear-gradient(180deg, #fbf8f3 0%, #f3ede2 100%);
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    box-shadow: 0 30px 60px -40px rgba(20,17,13,0.18), 0 2px 0 rgba(20,17,13,0.02);
+    overflow: hidden;
+  }
+  .video-placeholder::after {
+    content: "";
+    position: absolute; inset: 0;
+    background-image:
+      repeating-linear-gradient(0deg, rgba(20,17,13,.025) 0 1px, transparent 1px 80px),
+      repeating-linear-gradient(90deg, rgba(20,17,13,.025) 0 1px, transparent 1px 80px);
+    pointer-events: none;
+  }
+  .play-btn {
+    width: 76px; height: 76px;
+    border-radius: 999px;
+    background: var(--ink);
+    color: var(--bg);
+    display: grid; place-items: center;
+    transition: transform .3s ease;
+    box-shadow: 0 20px 40px -16px rgba(20,17,13,0.45);
+  }
+  .video-placeholder:hover .play-btn { transform: scale(1.05); }
+
+  /* Marquee-ish pricing border highlight */
+  .plan-recommended { border-color: var(--accent) !important; }
+</style>
+</head>
+<body class="text-ink">
+
+<!-- ============================================================
+     NAV
+     ============================================================ -->
+<header class="fixed left-0 right-0 z-40 flex justify-center pointer-events-none" style="top: 0;">
+  <nav id="nav"
+       class="nav pointer-events-auto mt-0 w-full mx-3 md:mx-6 px-5 md:px-7 py-3 md:py-3.5 rounded-full border border-transparent flex items-center justify-between"
+       style="max-width: 1240px;">
+    <a href="#" class="display text-[26px] leading-none tracking-tight">DyPol</a>
+
+    <ul class="hidden md:flex items-center gap-8 text-[14.5px] text-ink2">
+      <li><a href="#shift" class="ulink hover:text-ink transition-colors">Product</a></li>
+      <li><a href="#pricing" class="ulink hover:text-ink transition-colors">Pricing</a></li>
+      <li><a href="#methodology" class="ulink hover:text-ink transition-colors">Methodology</a></li>
+      <li><a href="#" class="ulink hover:text-ink transition-colors">Changelog</a></li>
+    </ul>
+
+    <div class="flex items-center gap-5">
+      <a href="#" id="signin-link" class="hidden sm:inline-block text-[14.5px] text-ink2 hover:text-ink transition-colors">Sign in</a>
+      <a href="#cta" class="btn-primary">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+        Install on GitHub
+      </a>
+    </div>
+  </nav>
+</header>
+
+<main class="relative" style="z-index: 2;">
+
+<!-- ============================================================
+     HERO
+     ============================================================ -->
+<section class="container-x pt-40 md:pt-48 pb-24 md:pb-32 relative">
+
+  <div class="grid grid-cols-12 gap-x-10 gap-y-14 items-end">
+    <!-- Left col -->
+    <div class="col-span-12 lg:col-span-7 stagger" id="hero-left">
+      <div class="flex items-center gap-3 mb-8">
+        <span class="caption">DyPol / v0.4 / Private beta</span>
+        <span class="rule-x" style="flex: 1;"></span>
+      </div>
+
+      <h1 class="h-display mb-8">
+        See what your engineering team is <em>actually</em> doing.
+      </h1>
+
+      <p class="text-[18px] leading-[1.55] text-ink2 max-w-[600px] mb-10">
+        DyPol is an AI analyst that reads your GitHub data and source code, then answers any
+        question you have about your engineering org &mdash; from <span class="italic-serif">"what did we ship last week"</span>
+        to <span class="italic-serif">"why is the billing PR taking so long."</span>
+      </p>
+
+      <div class="flex flex-wrap items-center gap-6">
+        <a href="#cta" class="btn-primary">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+          Install on GitHub
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+        </a>
+        <a href="#video" class="btn-quiet">Or watch a 90-second tour <span aria-hidden="true">→</span></a>
+      </div>
+
+      <div class="flex items-center gap-6 mt-14">
+        <span class="caption">Read-only GitHub App</span>
+        <span class="text-ink2">·</span>
+        <span class="caption">SOC 2 in progress</span>
+        <span class="text-ink2">·</span>
+        <span class="caption">No data resold, ever</span>
+      </div>
+    </div>
+
+    <!-- Right col: live demo widget -->
+    <div class="col-span-12 lg:col-span-5">
+      <div id="demo-widget" class="cursor-glow bg-surface border hairline rounded-[10px] overflow-hidden"
+           style="box-shadow: 0 30px 60px -40px rgba(20,17,13,0.18), 0 2px 0 rgba(20,17,13,0.02);">
+        <!-- Widget header -->
+        <div class="flex items-center justify-between px-4 py-3 border-b hairline">
+          <div class="flex items-center gap-2">
+            <span class="codedot" style="background:#E16D5C"></span>
+            <span class="codedot" style="background:#E5B341"></span>
+            <span class="codedot" style="background:#7AAE6A"></span>
+          </div>
+          <div class="mono text-[11px] text-ink2 tracking-wider">ASK DYPOL</div>
+          <div class="flex items-center gap-1.5">
+            <span class="status-dot"></span>
+            <span class="mono text-[10px] text-ink2 uppercase tracking-wider">live</span>
+          </div>
+        </div>
+
+        <!-- Widget body -->
+        <div class="px-5 py-5 text-[14.5px] leading-relaxed">
+          <!-- Question -->
+          <div class="flex items-baseline gap-2 mb-4">
+            <span class="mono text-[12px] text-ink2 select-none">›</span>
+            <span class="mono text-[13.5px]" id="typed-q"></span><span class="caret" id="caret"></span>
+          </div>
+
+          <!-- Answer -->
+          <div id="answer" class="space-y-3 text-ink" style="opacity:0; transition: opacity .5s ease;">
+            <p>
+              Aanya merged <a class="cite" href="#">#1247 · auth/oauth-pkce</a> on Tuesday and is currently deep in
+              <a class="cite" href="#">#1259 · billing/stripe-webhook-retries</a> &mdash; she's pushed 14 commits
+              since Monday but hasn't requested review yet.
+            </p>
+            <p class="text-ink2">
+              One branch looks stuck: <span class="mono text-[12.5px]">aanya/feat-usage-meter</span> &mdash; last
+              push 9 days ago, no PR opened. Want me to draft a nudge or summarize the diff?
+            </p>
+            <div class="flex items-center gap-2 pt-1">
+              <button class="mono text-[11px] tracking-wider uppercase border hairline rounded-full px-2.5 py-1 text-ink2 hover:text-ink hover:border-ink transition-colors">Summarize diff</button>
+              <button class="mono text-[11px] tracking-wider uppercase border hairline rounded-full px-2.5 py-1 text-ink2 hover:text-ink hover:border-ink transition-colors">Open PR</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="flex items-center justify-between px-4 py-3 border-t hairline bg-[#FBF8F3]">
+          <div class="mono text-[11px] text-ink2">
+            <span class="tabular">02 sources</span> · <span class="tabular">git + sql</span>
+          </div>
+          <div class="mono text-[11px] text-ink2">⌘K to ask</div>
+        </div>
+      </div>
+
+      <!-- caption -->
+      <div class="mt-4 caption flex items-center gap-3">
+        <span>Real screenshot</span>
+        <span class="rule-x" style="flex:1;"></span>
+        <span>Latency 1.2s</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     VIDEO
+     ============================================================ -->
+<section id="video" class="container-x pt-10 pb-28 md:pb-36 reveal">
+  <div class="grid grid-cols-12 gap-x-10 mb-10">
+    <div class="col-span-12 lg:col-span-3">
+      <div class="eyebrow">Watch it work</div>
+    </div>
+    <div class="col-span-12 lg:col-span-8 lg:col-start-4">
+      <p class="text-[22px] md:text-[26px] leading-[1.32] text-ink display" style="font-family: 'Instrument Serif'; letter-spacing: -0.01em;">
+        A 90-second tour of asking DyPol about a real engineering org &mdash;
+        <span class="italic" style="color: var(--ink2);">questions, citations, and the agent's working trace.</span>
+      </p>
+    </div>
+  </div>
+
+  <div class="mx-auto" style="max-width: 1100px;">
+    <!-- VIDEO EMBED GOES HERE -->
+    <div class="video-placeholder group">
+      <div class="absolute inset-0 grid place-items-center">
+        <button class="play-btn" aria-label="Play tour">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>
+        </button>
+      </div>
+      <div class="absolute top-4 left-4 mono text-[11px] tracking-wider uppercase text-ink2">DyPol / Tour</div>
+      <div class="absolute top-4 right-4 mono text-[11px] tracking-wider uppercase text-ink2 tabular">01:32</div>
+      <div class="absolute bottom-4 left-4 mono text-[11px] tracking-wider uppercase text-ink2">React + TypeScript repo · 14 contributors</div>
+    </div>
+    <div class="mt-4 caption text-center">DYPOL / TOUR / 1:32</div>
+  </div>
+</section>
+
+<!-- ============================================================
+     01 — THE SHIFT
+     ============================================================ -->
+<section id="shift" class="container-x py-28 md:py-36 border-t hairline reveal">
+  <div class="grid grid-cols-12 gap-x-10 mb-16">
+    <div class="col-span-12 lg:col-span-3">
+      <div class="eyebrow">01 / The shift</div>
+    </div>
+    <div class="col-span-12 lg:col-span-9">
+      <h2 class="h-section">
+        Every other tool gives you a dashboard.<br/>
+        We give you an <em>analyst</em>.
+      </h2>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-12 gap-x-10 gap-y-12">
+    <!-- Left: Dashboards -->
+    <div class="col-span-12 lg:col-span-5">
+      <div class="flex items-baseline justify-between mb-6">
+        <div class="caption">Dashboards</div>
+        <div class="mono text-[11px] text-ink2 tabular">last 7 days</div>
+      </div>
+
+      <div class="bg-surface border hairline rounded-[8px] p-7" style="box-shadow: 0 1px 0 rgba(20,17,13,.02);">
+        <div class="grid grid-cols-2 gap-y-8 gap-x-6">
+          <div>
+            <div class="caption mb-2">Cycle time</div>
+            <div class="display tabular text-[44px] leading-none">3.4<span class="text-ink2 text-[22px]">d</span></div>
+            <div class="mono text-[11px] text-ink2 mt-1 tabular">▲ 0.6 vs prev</div>
+          </div>
+          <div>
+            <div class="caption mb-2">Deploy freq</div>
+            <div class="display tabular text-[44px] leading-none">12.1<span class="text-ink2 text-[22px]">/wk</span></div>
+            <div class="mono text-[11px] text-ink2 mt-1 tabular">▼ 1.4 vs prev</div>
+          </div>
+          <div>
+            <div class="caption mb-2">PR throughput</div>
+            <div class="display tabular text-[44px] leading-none">47</div>
+            <div class="mono text-[11px] text-ink2 mt-1 tabular">▲ 8 vs prev</div>
+          </div>
+          <div>
+            <div class="caption mb-2">Review latency</div>
+            <div class="display tabular text-[44px] leading-none">11<span class="text-ink2 text-[22px]">h</span></div>
+            <div class="mono text-[11px] text-ink2 mt-1 tabular">▲ 2h vs prev</div>
+          </div>
+        </div>
+        <div class="mt-8 pt-6 border-t hairline mono text-[11.5px] text-ink2 leading-relaxed">
+          // You: now what?<br/>
+          // Dashboard:&nbsp;&nbsp;…
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: DyPol exchange (offset down for asymmetry) -->
+    <div class="col-span-12 lg:col-span-7 lg:pt-12">
+      <div class="flex items-baseline justify-between mb-6">
+        <div class="caption" style="color: var(--accent);">DyPol</div>
+        <div class="mono text-[11px] text-ink2">a conversation, not a chart</div>
+      </div>
+
+      <div class="space-y-5">
+        <div class="border-l-2 pl-5" style="border-color: var(--ink);">
+          <div class="caption mb-1.5">Founder</div>
+          <p class="mono text-[14px] text-ink">Why is deploy frequency down this week?</p>
+        </div>
+
+        <div class="border-l-2 pl-5" style="border-color: var(--accent);">
+          <div class="caption mb-1.5" style="color: var(--accent);">DyPol</div>
+          <p class="text-[16px] leading-relaxed">
+            Two reasons. First, the staging cluster was down Tues–Wed
+            (<a class="cite" href="#">incident #84</a>) and four PRs that were ready couldn't ship.
+            Second, <span class="mono text-[13.5px]">billing-svc</span> has had only one reviewer this week
+            because Marcus is on PTO &mdash; that repo accounts for ~40% of normal volume.
+            It should normalize Monday.
+          </p>
+        </div>
+
+        <div class="border-l-2 pl-5" style="border-color: var(--ink);">
+          <div class="caption mb-1.5">Founder</div>
+          <p class="mono text-[14px] text-ink">Show me the four PRs.</p>
+        </div>
+
+        <div class="border-l-2 pl-5" style="border-color: var(--accent);">
+          <div class="caption mb-1.5" style="color: var(--accent);">DyPol</div>
+          <p class="text-[16px] leading-relaxed">
+            <a class="cite" href="#">#1234</a>
+            <a class="cite" href="#">#1238</a>
+            <a class="cite" href="#">#1241</a>
+            <a class="cite" href="#">#1245</a>
+            &mdash; all green, all approved, deploying now that staging is healthy.
+            The first one is a 4-line copy fix; want me to start there?
+          </p>
+        </div>
+      </div>
+
+      <div class="mt-8 caption">
+        Same data. Different interface.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     02 — EXAMPLE QUERIES
+     ============================================================ -->
+<section class="container-x py-28 md:py-36 border-t hairline reveal">
+  <div class="grid grid-cols-12 gap-x-10 mb-16">
+    <div class="col-span-12 lg:col-span-3">
+      <div class="eyebrow">02 / What you can ask</div>
+    </div>
+    <div class="col-span-12 lg:col-span-9">
+      <h2 class="h-section">Real questions. Real answers. Real <em>citations</em>.</h2>
+      <p class="mt-6 text-[18px] text-ink2 max-w-[640px]">
+        Three exchanges from a real customer environment. Names changed, repo names kept.
+      </p>
+    </div>
+  </div>
+
+  <!-- Card A — left aligned -->
+  <article class="grid grid-cols-12 gap-x-10 mb-12 md:mb-16">
+    <div class="col-span-12 md:col-span-1 caption pt-2">a.</div>
+    <div class="col-span-12 md:col-span-9 bg-surface border hairline rounded-[8px] p-7 md:p-9"
+         style="box-shadow: 0 1px 0 rgba(20,17,13,.02);">
+      <div class="caption mb-3">People · staffing</div>
+      <p class="mono text-[15px] mb-5">› What is Aanya working on?</p>
+      <div class="rule-x mb-5"></div>
+      <p class="text-[16.5px] leading-relaxed">
+        She's the primary author on <a class="cite" href="#">#1247 · oauth-pkce</a> (merged Tuesday) and is
+        deep in <a class="cite" href="#">#1259 · stripe-webhook-retries</a>, with 14 commits since Monday
+        but no review request yet.
+      </p>
+      <p class="text-[16.5px] leading-relaxed mt-3 text-ink2">
+        Her branch <span class="mono text-[13.5px]">aanya/feat-usage-meter</span> looks stuck &mdash;
+        last push 9 days ago, no PR. She also reviewed three of Marcus's PRs while he was on PTO.
+      </p>
+    </div>
+  </article>
+
+  <!-- Card B — offset right -->
+  <article class="grid grid-cols-12 gap-x-10 mb-12 md:mb-16">
+    <div class="col-span-12 md:col-span-1 md:col-start-3 caption pt-2">b.</div>
+    <div class="col-span-12 md:col-span-9 md:col-start-4 bg-surface border hairline rounded-[8px] p-7 md:p-9"
+         style="box-shadow: 0 1px 0 rgba(20,17,13,.02);">
+      <div class="caption mb-3">Throughput · diagnosis</div>
+      <p class="mono text-[15px] mb-5">› Why is the billing repo slow?</p>
+      <div class="rule-x mb-5"></div>
+      <p class="text-[16.5px] leading-relaxed">
+        Two named reviewers carry 84% of <span class="mono text-[13.5px]">billing-svc</span> reviews
+        (Marcus and Priya). Priya is on call this week, Marcus is on PTO &mdash; so review latency on
+        that repo jumped from 6h to 38h.
+      </p>
+      <p class="text-[16.5px] leading-relaxed mt-3 text-ink2">
+        Three PRs are blocked on review:
+        <a class="cite" href="#">#812</a>
+        <a class="cite" href="#">#814</a>
+        <a class="cite" href="#">#819</a>.
+        I can suggest a temporary CODEOWNERS reshuffle if you want.
+      </p>
+    </div>
+  </article>
+
+  <!-- Card C — full width, shows code access -->
+  <article class="grid grid-cols-12 gap-x-10">
+    <div class="col-span-12 md:col-span-1 md:col-start-2 caption pt-2">c.</div>
+    <div class="col-span-12 md:col-span-10 md:col-start-3 bg-surface border hairline rounded-[8px] overflow-hidden"
+         style="box-shadow: 0 1px 0 rgba(20,17,13,.02);">
+      <div class="p-7 md:p-9 pb-5">
+        <div class="caption mb-3">Code · across-repo audit</div>
+        <p class="mono text-[15px] mb-5">› Find every place we still call <span class="text-accent">stripe.charge()</span> &mdash; are they still active?</p>
+        <div class="rule-x mb-5"></div>
+        <p class="text-[16.5px] leading-relaxed">
+          Five call sites remain. Three are reachable from production code paths;
+          two are inside tests or feature-flagged branches that haven't shipped in 6+ months.
+        </p>
+      </div>
+      <!-- code excerpt -->
+      <div class="codeblock mx-7 md:mx-9 mb-7 md:mb-9 p-5">
+        <div class="flex items-center justify-between mb-3 opacity-60">
+          <span>git grep -n "stripe.charge(" $(git rev-parse HEAD)</span>
+          <span>5 results · 4 files</span>
+        </div>
+        <div class="space-y-1.5">
+          <div><span style="color:#7AAE6A">apps/billing/src/legacy/checkout.ts</span><span style="opacity:.5">:142</span> &nbsp;<span style="opacity:.85">await stripe.charge({ amount, source }) // ACTIVE — fallback path, hit ~30/day</span></div>
+          <div><span style="color:#7AAE6A">apps/billing/src/legacy/checkout.ts</span><span style="opacity:.5">:217</span> &nbsp;<span style="opacity:.85">stripe.charge({ amount, source: token })   // ACTIVE — admin refund flow</span></div>
+          <div><span style="color:#7AAE6A">apps/api/src/jobs/retry-charge.ts</span><span style="opacity:.5">:58</span>  &nbsp;<span style="opacity:.85">return stripe.charge({ amount, source: src }) // ACTIVE — retry queue</span></div>
+          <div><span style="color:#E5B341">apps/billing/test/legacy.spec.ts</span><span style="opacity:.5">:33</span>   &nbsp;<span style="opacity:.65">stripe.charge({ amount: 100, source: 'tok' }) // test fixture</span></div>
+          <div><span style="color:#E5B341">apps/api/src/experimental/dunning.ts</span><span style="opacity:.5">:91</span> &nbsp;<span style="opacity:.65">if (FLAG_DUNNING_V2_OFF) stripe.charge(…) // dead since 2024-11</span></div>
+        </div>
+      </div>
+    </div>
+  </article>
+</section>
+
+<!-- ============================================================
+     03 — HOW IT WORKS
+     ============================================================ -->
+<section class="container-x py-28 md:py-36 border-t hairline reveal">
+  <div class="grid grid-cols-12 gap-x-10 mb-14">
+    <div class="col-span-12 lg:col-span-3">
+      <div class="eyebrow">03 / How the agent works</div>
+    </div>
+    <div class="col-span-12 lg:col-span-9">
+      <h2 class="h-section">Eight tools. <em>Any question.</em></h2>
+      <p class="mt-6 text-[18px] text-ink2 max-w-[680px]">
+        DyPol's agent has access to a focused set of primitives &mdash; SQL on engineering
+        metadata, full git command access on read-only repo clones, file reading at any commit,
+        Python for analysis, chart rendering, and semantic search across PRs and issues. It
+        composes these to answer whatever you ask.
+      </p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-12 gap-x-10">
+    <div class="col-span-12 lg:col-span-10 lg:col-start-2">
+      <div class="prim">
+        <span class="name">run_sql</span>
+        <span class="text-[16px] text-ink">Read-only SQL across all your engineering metadata.</span>
+        <span class="num">01</span>
+      </div>
+      <div class="prim">
+        <span class="name">shell_exec</span>
+        <span class="text-[16px] text-ink">Any git command on read-only clones of your repos.</span>
+        <span class="num">02</span>
+      </div>
+      <div class="prim">
+        <span class="name">read_file</span>
+        <span class="text-[16px] text-ink">Inspect any file at any commit.</span>
+        <span class="num">03</span>
+      </div>
+      <div class="prim">
+        <span class="name">python_exec</span>
+        <span class="text-[16px] text-ink">Custom analysis in a sandboxed Python environment.</span>
+        <span class="num">04</span>
+      </div>
+      <div class="prim">
+        <span class="name">make_chart</span>
+        <span class="text-[16px] text-ink">Render charts inline with answers.</span>
+        <span class="num">05</span>
+      </div>
+      <div class="prim">
+        <span class="name">describe_schema</span>
+        <span class="text-[16px] text-ink">So the agent can author queries it didn't pre-know.</span>
+        <span class="num">06</span>
+      </div>
+      <div class="prim">
+        <span class="name">semantic_search</span>
+        <span class="text-[16px] text-ink">Find PRs, issues, and comments by topic, not just keyword.</span>
+        <span class="num">07</span>
+      </div>
+      <div class="prim">
+        <span class="name">summarize</span>
+        <span class="text-[16px] text-ink">Compress long context before reasoning over it.</span>
+        <span class="num">08</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     04 — TRUST & METHODOLOGY
+     ============================================================ -->
+<section id="methodology" class="container-x py-28 md:py-36 border-t hairline reveal">
+  <div class="grid grid-cols-12 gap-x-10 mb-14">
+    <div class="col-span-12 lg:col-span-4">
+      <div class="eyebrow mb-4">04 / Built for engineers, not against them</div>
+    </div>
+    <div class="col-span-12 lg:col-span-8">
+      <h2 class="h-section">
+        We measure pushed work. We tell engineers what we see. We never use <em>"lines of code."</em>
+      </h2>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-12 gap-x-10 gap-y-12">
+    <div class="col-span-12 lg:col-span-4 lg:col-start-5">
+      <div class="caption mb-3">Scoring</div>
+      <p class="text-[17px] leading-relaxed">
+        Four signals: Impact, Quality, Collaboration, Consistency. Derived from review depth,
+        revert rate, ownership of PRs that ship, and the work load engineers carry for one another.
+        Never LOC. Never commit count.
+        <a href="#" class="ulink text-accent ml-1">Read the methodology &rarr;</a>
+      </p>
+    </div>
+    <div class="col-span-12 lg:col-span-4">
+      <div class="caption mb-3">Data access</div>
+      <p class="text-[17px] leading-relaxed">
+        Read-only GitHub App. Per-repo allowlist. Every agent action is in an audit log you can
+        export. You delete your data with one click and we mean it &mdash; the deletion job runs
+        within an hour. SOC 2 Type II in progress; report on request.
+      </p>
+    </div>
+    <div class="col-span-12 lg:col-span-4 lg:col-start-5">
+      <div class="caption mb-3">Engineer self-view</div>
+      <p class="text-[17px] leading-relaxed">
+        Every engineer can see exactly what DyPol sees about them. Same metrics, same trends,
+        same prose. There is no "manager-only" view of a person. If a tool is going to look at
+        someone's work, that person should be able to look back.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     WHO IT'S FOR
+     ============================================================ -->
+<section class="container-x py-28 md:py-36 border-t hairline reveal">
+  <div class="grid grid-cols-12 gap-x-10 mb-12">
+    <div class="col-span-12 lg:col-span-3">
+      <div class="eyebrow">For</div>
+    </div>
+    <div class="col-span-12 lg:col-span-9">
+      <h2 class="h-section">Two kinds of reader. <em>One question.</em></h2>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-12 gap-x-10 gap-y-14">
+    <!-- Founders block: more spacious, serif lean -->
+    <div class="col-span-12 lg:col-span-6">
+      <div class="bg-surface border hairline rounded-[10px] p-9 h-full"
+           style="box-shadow: 0 1px 0 rgba(20,17,13,.02);">
+        <div class="caption mb-4">Founders & CTOs</div>
+        <h3 class="display text-[34px] leading-[1.1] mb-5" style="letter-spacing:-0.01em;">
+          You stopped reading the dashboard six weeks ago.
+        </h3>
+        <p class="text-[16.5px] leading-relaxed text-ink2 mb-8">
+          DyPol replaces the ritual of "checking the metrics" with a one-line question.
+          Ask once a week. Get a paragraph back. Forward it to the board.
+        </p>
+        <figure class="border-t hairline pt-6">
+          <blockquote class="italic-serif text-[20px] leading-[1.35] text-ink mb-3">
+            "{quote from design partner}"
+          </blockquote>
+          <figcaption class="caption">Founder · 22-person Series A</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <!-- VPs block: tighter, structural -->
+    <div class="col-span-12 lg:col-span-6 lg:pt-10">
+      <div class="border-t border-b hairline py-9 px-1">
+        <div class="caption mb-4" style="color: var(--accent);">VPs of Engineering</div>
+        <h3 class="display text-[34px] leading-[1.1] mb-5" style="letter-spacing:-0.01em;">
+          One-on-ones, with the data already loaded.
+        </h3>
+        <p class="text-[16.5px] leading-relaxed text-ink2 mb-8">
+          Walk into reviews knowing what each engineer shipped, who they helped, and where
+          they got stuck. Not as a scorecard &mdash; as a way to ask better questions.
+        </p>
+        <figure>
+          <blockquote class="italic-serif text-[20px] leading-[1.35] text-ink mb-3">
+            "{quote from design partner}"
+          </blockquote>
+          <figcaption class="caption">VP Eng · 60-person Series B</figcaption>
+        </figure>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     05 — PRICING
+     ============================================================ -->
+<section id="pricing" class="container-x py-28 md:py-36 border-t hairline reveal">
+  <div class="grid grid-cols-12 gap-x-10 mb-14">
+    <div class="col-span-12 lg:col-span-3">
+      <div class="eyebrow">05 / Pricing</div>
+    </div>
+    <div class="col-span-12 lg:col-span-9">
+      <h2 class="h-section">Free for small teams. <em>Honest pricing</em> for the rest.</h2>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-12 gap-x-10 gap-y-10">
+    <!-- Free -->
+    <div class="col-span-12 md:col-span-4 border-t hairline pt-8">
+      <div class="flex items-baseline justify-between mb-1">
+        <h3 class="display text-[28px]">Free</h3>
+        <span class="caption">up to 5 devs</span>
+      </div>
+      <div class="display tabular text-[44px] leading-none mt-3 mb-2">$0</div>
+      <p class="mono text-[12px] text-ink2 mb-6">forever</p>
+      <ul class="space-y-2 text-[15.5px] text-ink2 leading-relaxed">
+        <li>— All eight tools</li>
+        <li>— 1 repo</li>
+        <li>— 30-day history</li>
+        <li>— Community Slack</li>
+      </ul>
+    </div>
+
+    <!-- Startup (recommended) -->
+    <div class="col-span-12 md:col-span-4 border-t pt-8 plan-recommended" style="border-top-width: 2px;">
+      <div class="flex items-baseline justify-between mb-1">
+        <h3 class="display text-[28px]">Startup</h3>
+        <span class="caption" style="color: var(--accent);">Recommended</span>
+      </div>
+      <div class="display tabular text-[44px] leading-none mt-3 mb-2">$15<span class="text-ink2 text-[18px]"> / dev / mo</span></div>
+      <p class="mono text-[12px] text-ink2 mb-6">billed monthly</p>
+      <ul class="space-y-2 text-[15.5px] text-ink2 leading-relaxed">
+        <li>— Everything in Free</li>
+        <li>— Unlimited repos</li>
+        <li>— 12-month history</li>
+        <li>— Slack & Linear webhooks</li>
+        <li>— Email support</li>
+      </ul>
+    </div>
+
+    <!-- Growth -->
+    <div class="col-span-12 md:col-span-4 border-t hairline pt-8">
+      <div class="flex items-baseline justify-between mb-1">
+        <h3 class="display text-[28px]">Growth</h3>
+        <span class="caption">25+ devs</span>
+      </div>
+      <div class="display tabular text-[44px] leading-none mt-3 mb-2">$25<span class="text-ink2 text-[18px]"> / dev / mo</span></div>
+      <p class="mono text-[12px] text-ink2 mb-6">SOC 2, SSO, audit log export</p>
+      <ul class="space-y-2 text-[15.5px] text-ink2 leading-relaxed">
+        <li>— Everything in Startup</li>
+        <li>— SAML SSO</li>
+        <li>— Custom data retention</li>
+        <li>— Shared Slack channel</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="rule-x mt-14"></div>
+  <div class="grid grid-cols-12 gap-x-10 mt-8">
+    <div class="col-span-12 md:col-span-7">
+      <p class="text-[16.5px] text-ink2">
+        Enterprise (self-host, custom DPA, dedicated support) &mdash;
+        <a href="#" class="ulink text-ink">talk to us &rarr;</a>
+      </p>
+    </div>
+    <div class="col-span-12 md:col-span-5 md:text-right">
+      <p class="text-[14px] mono text-ink2">
+        We undercut LinearB and Swarmia by half. We do this by being independent and not sales-led.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     FAQ
+     ============================================================ -->
+<section class="container-x py-28 md:py-36 border-t hairline reveal">
+  <div class="grid grid-cols-12 gap-x-10 mb-14">
+    <div class="col-span-12 lg:col-span-3">
+      <div class="eyebrow">06 / Questions worth asking</div>
+    </div>
+    <div class="col-span-12 lg:col-span-9">
+      <h2 class="h-section">Answers we'd want before <em>installing this on our own repo.</em></h2>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-12 gap-x-10">
+    <div class="col-span-12 lg:col-span-10 lg:col-start-2">
+      <dl>
+        <div class="grid grid-cols-12 gap-x-8 py-7 border-t hairline">
+          <dt class="col-span-12 md:col-span-5 faq-q">Will my engineers see this as surveillance?</dt>
+          <dd class="col-span-12 md:col-span-7 text-[16.5px] leading-relaxed text-ink2 mt-3 md:mt-1">
+            They will if you treat it that way. The product is built so engineers see exactly what
+            you see &mdash; same metrics, same prose, same audit log. We've shipped it that way on
+            purpose. Used as a 1:1 prep tool, it builds trust. Used as a leaderboard, it won't.
+          </dd>
+        </div>
+        <div class="grid grid-cols-12 gap-x-8 py-7 border-t hairline">
+          <dt class="col-span-12 md:col-span-5 faq-q">What data leaves our environment?</dt>
+          <dd class="col-span-12 md:col-span-7 text-[16.5px] leading-relaxed text-ink2 mt-3 md:mt-1">
+            GitHub metadata and source needed to answer your questions. We never sell, share, or
+            use your code to train foundation models. Embeddings stay in your tenant. On Growth and
+            Enterprise plans, you can pin all inference to a region of your choice.
+          </dd>
+        </div>
+        <div class="grid grid-cols-12 gap-x-8 py-7 border-t hairline">
+          <dt class="col-span-12 md:col-span-5 faq-q">How is the score calculated?</dt>
+          <dd class="col-span-12 md:col-span-7 text-[16.5px] leading-relaxed text-ink2 mt-3 md:mt-1">
+            Impact, Quality, Collaboration, Consistency &mdash; each on a 0–100 scale, derived from
+            shipped work. The full formula is published, versioned, and runnable on your data. No
+            opaque magic. <a href="#" class="ulink text-accent">Read the methodology &rarr;</a>
+          </dd>
+        </div>
+        <div class="grid grid-cols-12 gap-x-8 py-7 border-t hairline">
+          <dt class="col-span-12 md:col-span-5 faq-q">Can I self-host?</dt>
+          <dd class="col-span-12 md:col-span-7 text-[16.5px] leading-relaxed text-ink2 mt-3 md:mt-1">
+            On Enterprise, yes &mdash; in a VPC of your choice on AWS or GCP. The agent and its tools
+            run inside your perimeter; only billing telemetry leaves.
+          </dd>
+        </div>
+        <div class="grid grid-cols-12 gap-x-8 py-7 border-t border-b hairline">
+          <dt class="col-span-12 md:col-span-5 faq-q">What if I want my data deleted?</dt>
+          <dd class="col-span-12 md:col-span-7 text-[16.5px] leading-relaxed text-ink2 mt-3 md:mt-1">
+            One click in Settings. The deletion job runs within an hour and we send you a signed
+            receipt with the row counts removed. Backups roll over within 30 days.
+          </dd>
+        </div>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     CTA FOOTER
+     ============================================================ -->
+<section id="cta" class="container-x py-28 md:py-40 border-t hairline reveal">
+  <div class="text-center max-w-[820px] mx-auto">
+    <p class="display text-[40px] md:text-[56px] leading-[1.05] mb-10" style="letter-spacing: -0.015em;">
+      Install on GitHub.<br/>See the dashboard in <em>under ten minutes</em>.
+    </p>
+    <a href="#" class="btn-primary">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+      Install on GitHub
+    </a>
+  </div>
+</section>
+
+<!-- ============================================================
+     FOOTER
+     ============================================================ -->
+<footer class="container-x pt-16 pb-12 border-t hairline">
+  <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-10 mb-14">
+    <a href="#" class="display text-[44px] leading-none">DyPol</a>
+    <div class="flex items-center gap-2.5 mono text-[12px] tracking-wider uppercase text-ink2">
+      <span class="status-dot"></span>
+      All systems operational
+    </div>
+  </div>
+
+  <div class="grid grid-cols-12 gap-x-10 gap-y-10 pb-10 border-b hairline">
+    <div class="col-span-6 md:col-span-3">
+      <div class="caption mb-4">Product</div>
+      <ul class="space-y-2.5 text-[15px]">
+        <li><a href="#" class="ulink text-ink2 hover:text-ink transition-colors">Overview</a></li>
+        <li><a href="#" class="ulink text-ink2 hover:text-ink transition-colors">Methodology</a></li>
+        <li><a href="#" class="ulink text-ink2 hover:text-ink transition-colors">Pricing</a></li>
+        <li><a href="#" class="ulink text-ink2 hover:text-ink transition-colors">Changelog</a></li>
+      </ul>
+    </div>
+    <div class="col-span-6 md:col-span-3">
+      <div class="caption mb-4">Company</div>
+      <ul class="space-y-2.5 text-[15px]">
+        <li><a href="#" class="ulink text-ink2 hover:text-ink transition-colors">Trust & security</a></li>
+        <li><a href="#" class="ulink text-ink2 hover:text-ink transition-colors">Privacy</a></li>
+        <li><a href="#" class="ulink text-ink2 hover:text-ink transition-colors">Contact</a></li>
+        <li><a href="#" class="ulink text-ink2 hover:text-ink transition-colors">Careers</a></li>
+      </ul>
+    </div>
+    <div class="col-span-12 md:col-span-6 md:text-right">
+      <p class="italic-serif text-[24px] leading-[1.3] text-ink max-w-[460px] md:ml-auto">
+        Built for the people who actually ship.<br/>
+        Not the people who present about shipping.
+      </p>
+    </div>
+  </div>
+
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 pt-8 mono text-[11.5px] tracking-wider uppercase text-ink2">
+    <span>© 2026 DyPol.ai, Inc.</span>
+    <span>Made with care, not by committee.</span>
+  </div>
+</footer>
+
+</main>
+
+<!-- ============================================================
+     SIGN-IN MODAL (fake auth)
+     ============================================================ -->
+<div id="signin-modal" class="fixed inset-0 z-50 hidden items-center justify-center" aria-hidden="true">
+  <div id="signin-backdrop" class="absolute inset-0" style="background: rgba(20,17,13,0.32); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);"></div>
+  <div id="signin-card" class="relative bg-surface border hairline rounded-[10px] w-[440px] max-w-[92vw] overflow-hidden"
+       style="box-shadow: 0 40px 80px -30px rgba(20,17,13,0.35); transform: translateY(8px) scale(0.98); opacity: 0; transition: transform .35s cubic-bezier(.2,.7,.2,1), opacity .3s ease;">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between px-5 py-3.5 border-b hairline">
+      <div class="flex items-center gap-2">
+        <span class="codedot" style="background:#E16D5C"></span>
+        <span class="codedot" style="background:#E5B341"></span>
+        <span class="codedot" style="background:#7AAE6A"></span>
+      </div>
+      <div class="mono text-[11px] text-ink2 tracking-wider uppercase">Sign in</div>
+      <button id="signin-close" class="mono text-[11px] text-ink2 hover:text-ink uppercase tracking-wider">esc</button>
+    </div>
+
+    <!-- Body -->
+    <div class="px-7 py-8" id="signin-body">
+      <!-- STEP 1: Email -->
+      <div data-step="1">
+        <h3 class="display text-[28px] leading-tight mb-2">Welcome back.</h3>
+        <p class="text-[14.5px] text-ink2 mb-6">Sign in with the GitHub account connected to your workspace.</p>
+
+        <button id="gh-btn" class="w-full flex items-center justify-center gap-2.5 bg-ink text-bg rounded-[5px] py-3 text-[14.5px] font-medium transition-transform hover:translate-y-[-1px]">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+          Continue with GitHub
+        </button>
+
+        <div class="flex items-center gap-3 my-5">
+          <span class="rule-x" style="flex:1;"></span>
+          <span class="caption">or</span>
+          <span class="rule-x" style="flex:1;"></span>
+        </div>
+
+        <label class="caption block mb-2">Work email</label>
+        <input id="email-input" type="email" placeholder="you@company.com" value="alex@acme.dev"
+               class="w-full bg-bg border hairline rounded-[5px] px-3.5 py-2.5 text-[14.5px] focus:outline-none focus:border-accent transition-colors mono"/>
+        <button id="email-btn" class="w-full mt-3 btn-primary justify-center">Continue with email</button>
+      </div>
+
+      <!-- STEP 2: Loading -->
+      <div data-step="2" class="hidden">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="status-dot" style="background:#E5B341; box-shadow: 0 0 0 0 rgba(229,179,65,0.45);"></div>
+          <span class="caption">Authenticating</span>
+        </div>
+        <h3 class="display text-[26px] leading-tight mb-6">Connecting to your workspace…</h3>
+        <ul class="space-y-2.5 mono text-[12.5px]" id="auth-trace"></ul>
+      </div>
+
+      <!-- STEP 3: Done -->
+      <div data-step="3" class="hidden">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="status-dot"></div>
+          <span class="caption" style="color: var(--accent);">Signed in</span>
+        </div>
+        <h3 class="display text-[28px] leading-tight mb-2">You're in.</h3>
+        <p class="text-[14.5px] text-ink2 mb-1">Redirecting to your workspace<span id="dots">…</span></p>
+        <div class="mono text-[11.5px] text-ink2 mt-6 tabular">acme-dev / 14 contributors / 23 repos</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ---------- Scroll-aware nav ----------
+  const nav = document.getElementById('nav');
+  const onScroll = () => {
+    if (window.scrollY > 24) nav.classList.add('is-floating');
+    else nav.classList.remove('is-floating');
+  };
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  // ---------- Cursor-aware glow on demo widget ----------
+  const demo = document.getElementById('demo-widget');
+  if (demo) {
+    demo.addEventListener('mousemove', (e) => {
+      const r = demo.getBoundingClientRect();
+      demo.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100) + '%');
+      demo.style.setProperty('--my', ((e.clientY - r.top)  / r.height * 100) + '%');
+    });
+  }
+
+  // ---------- Hero entrance ----------
+  requestAnimationFrame(() => {
+    const left = document.getElementById('hero-left');
+    if (left) left.classList.add('in');
+  });
+
+  // ---------- Typed question + streamed answer in widget ----------
+  (() => {
+    const question = "What is Aanya working on?";
+    const target = document.getElementById('typed-q');
+    const caret = document.getElementById('caret');
+    const answer = document.getElementById('answer');
+    if (!target) return;
+    let i = 0;
+    const tick = () => {
+      if (i <= question.length) {
+        target.textContent = question.slice(0, i);
+        i++;
+        setTimeout(tick, 36 + Math.random() * 30);
+      } else {
+        // brief pause, then reveal answer
+        setTimeout(() => {
+          if (caret) caret.style.display = 'none';
+          if (answer) answer.style.opacity = '1';
+        }, 380);
+      }
+    };
+    setTimeout(tick, 900);
+  })();
+
+  // ---------- Scroll reveal ----------
+  const io = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('in');
+        io.unobserve(entry.target);
+      }
+    }
+  }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+
+  document.querySelectorAll('.reveal, .stagger').forEach(el => io.observe(el));
+
+  // ---------- Sign-in modal (fake auth) ----------
+  (() => {
+    const link = document.getElementById('signin-link');
+    const modal = document.getElementById('signin-modal');
+    const card = document.getElementById('signin-card');
+    const backdrop = document.getElementById('signin-backdrop');
+    const closeBtn = document.getElementById('signin-close');
+    const ghBtn = document.getElementById('gh-btn');
+    const emailBtn = document.getElementById('email-btn');
+    const emailInput = document.getElementById('email-input');
+    const trace = document.getElementById('auth-trace');
+
+    const steps = modal.querySelectorAll('[data-step]');
+    const showStep = (n) => steps.forEach(s => s.classList.toggle('hidden', s.dataset.step !== String(n)));
+
+    const open = () => {
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      requestAnimationFrame(() => {
+        card.style.transform = 'translateY(0) scale(1)';
+        card.style.opacity = '1';
+      });
+      showStep(1);
+    };
+    const close = () => {
+      card.style.transform = 'translateY(8px) scale(0.98)';
+      card.style.opacity = '0';
+      setTimeout(() => { modal.classList.add('hidden'); modal.classList.remove('flex'); }, 280);
+    };
+
+    if (link) link.addEventListener('click', (e) => { e.preventDefault(); open(); });
+    closeBtn.addEventListener('click', close);
+    backdrop.addEventListener('click', close);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.classList.contains('hidden')) close(); });
+
+    const traceLines = [
+      ['→', 'github.oauth.authorize', 'ok'],
+      ['→', 'workspace.lookup acme-dev', 'ok'],
+      ['→', 'permissions.verify read:repo', 'ok'],
+      ['→', 'session.issue', 'ok'],
+    ];
+
+    const startAuth = () => {
+      showStep(2);
+      trace.innerHTML = '';
+      let i = 0;
+      const tick = () => {
+        if (i >= traceLines.length) {
+          setTimeout(() => {
+            showStep(3);
+            // animate dots, then redirect
+            let d = 0;
+            const dotsEl = document.getElementById('dots');
+            const di = setInterval(() => { d = (d + 1) % 4; if (dotsEl) dotsEl.textContent = '.'.repeat(d); }, 280);
+            setTimeout(() => { clearInterval(di); window.location.href = 'home.html'; }, 1100);
+          }, 380);
+          return;
+        }
+        const [arrow, name, status] = traceLines[i];
+        const li = document.createElement('li');
+        li.style.opacity = '0';
+        li.style.transform = 'translateY(4px)';
+        li.style.transition = 'opacity .3s ease, transform .3s ease';
+        li.innerHTML = `<span style="color: var(--ink2);">${arrow}</span> <span class="text-ink">${name}</span> <span style="color: var(--accent); float:right;">${status}</span>`;
+        trace.appendChild(li);
+        requestAnimationFrame(() => { li.style.opacity = '1'; li.style.transform = 'none'; });
+        i++;
+        setTimeout(tick, 320 + Math.random() * 200);
+      };
+      tick();
+    };
+
+    ghBtn.addEventListener('click', startAuth);
+    emailBtn.addEventListener('click', startAuth);
+  })();
+</script>
+
+</body>
+</html>
