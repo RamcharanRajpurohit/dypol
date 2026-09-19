@@ -14,7 +14,13 @@ import { OrgSearch } from "./OrgSearch";
  *  2. **Search and add a public org** — read-only public-data workspace, no
  *     install. Useful for testing, demos, or analyzing OSS projects.
  */
-export function OrgPicker({ onChanged }: { onChanged?: () => void }) {
+export function OrgPicker({
+  onChanged,
+  showConnected = true,
+}: {
+  onChanged?: () => void;
+  showConnected?: boolean;
+}) {
   const [connected, setConnected] = useState<ConnectedAccount[] | null>(null);
   const [installUrl, setInstallUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +59,6 @@ export function OrgPicker({ onChanged }: { onChanged?: () => void }) {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Poll once after the user has been redirected to GitHub for install,
@@ -85,8 +90,12 @@ export function OrgPicker({ onChanged }: { onChanged?: () => void }) {
   }
 
   return (
-    <div style={{ maxWidth: 520, margin: "0 auto" }}>
-      {connected.length > 0 && (
+    <div style={{ maxWidth: 620, margin: "0 auto" }}>
+      <section className="card p-5" style={{ marginBottom: 18 }}>
+        <OrgSearch onAdded={refresh} />
+      </section>
+
+      {showConnected && connected.length > 0 && (
         <div className="card mb-5" style={{ overflow: "hidden" }}>
           {connected.map((acc) => (
             <ConnectedRow key={`${acc.mode}:${acc.login}`} account={acc} />
@@ -95,7 +104,7 @@ export function OrgPicker({ onChanged }: { onChanged?: () => void }) {
       )}
 
       {installUrl && (
-        <div style={{ textAlign: "center", marginBottom: 28 }}>
+        <div className="card p-5" style={{ textAlign: "center" }}>
           <a
             href={installUrl}
             className="btn-primary"
@@ -106,27 +115,8 @@ export function OrgPicker({ onChanged }: { onChanged?: () => void }) {
               ? "Connect a GitHub account"
               : "Connect another account"}
           </a>
-          <p
-            className="text-ink2 text-[12px]"
-            style={{ marginTop: 12, color: "var(--ink3)" }}
-          >
-            Install the GitHub App. Full read access (private + public).
-          </p>
         </div>
       )}
-
-      <div
-        className="hairline"
-        style={{ borderTop: "1px solid var(--hairline)", paddingTop: 20 }}
-      >
-        <div
-          className="label-tight"
-          style={{ marginBottom: 10, textAlign: "center" }}
-        >
-          Or explore a public org (read-only)
-        </div>
-        <OrgSearch onAdded={refresh} />
-      </div>
     </div>
   );
 }

@@ -122,3 +122,28 @@ Delegate only when a specialist's tools are genuinely required, and give each
 chosen sub-agent a single, sharply-scoped task. Never route the same task to
 two sub-agents.
 """
+
+
+def bound_tools_block(bound: set[str] | list[str]) -> str:
+    """A per-run block naming the tools ACTUALLY bound for this invocation.
+
+    Sub-agent prompts describe a *superset* of tools, because availability is
+    decided at runtime: ``registry._spec_available`` admits a sub-agent when
+    ANY of its declared TOOL_NAMES exist, so ``code_analyst`` runs whenever
+    ``github_get`` does — while its prompt still instructs "Try semantic_search
+    first". With RAG disabled that call comes back ``unknown_tool`` and a turn
+    of the (already tight) budget is gone.
+
+    Appending this block closes the gap without duplicating each prompt per
+    capability combination: the static text stays the catalogue, this states
+    the bindings, and the bindings win.
+    """
+    names = sorted(bound)
+    return (
+        "\n\nTOOLS ACTUALLY BOUND FOR THIS RUN: "
+        + (", ".join(names) if names else "(none)")
+        + "\nThis list overrides any tool mentioned above. Calling anything not "
+        "in it returns unknown_tool and wastes a step of your limited budget — "
+        "if the workflow above suggests a tool that is missing here, skip "
+        "straight to the next step that uses a tool you do have.\n"
+    )

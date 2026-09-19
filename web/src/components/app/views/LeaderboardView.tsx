@@ -16,7 +16,7 @@ export function LeaderboardView({ visible }: Props) {
   const { data: entries, error, loading } = useApi(
     visible ? `leaderboard:${days}` : null,
     () => getLeaderboard(days, 50),
-    { ttlMs: 90_000 },
+    { ttlMs: 10 * 60_000 },
   );
 
   if (!visible) return null;

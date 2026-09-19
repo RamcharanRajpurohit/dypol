@@ -110,7 +110,7 @@ No git history means no evidence of incremental work for a BTP evaluation, and o
 
 ### 3.3 Pick one name
 
-Settled: the product is **DyPol** (**DyPol.ai** in full), and **AdaptiveRuntime** is the library. Python package `dypol_backend` and GitHub App `dypolai` already match. The only remaining alias is the checkout directory `founderbuddy`, which is a local path rather than a user-visible name — rename it when convenient.
+Settled: the product is **DyPol** (**DyPol.ai** in full), and **AdaptiveRuntime** is the library. Python package `dypol_backend` and GitHub App `dypolai` already match. The checkout directory has been renamed to `dypol`, so no aliases remain.
 
 ---
 
@@ -208,7 +208,7 @@ adaptive-runtime/                 ← BTP artifact: standalone, domain-free, ben
       langgraph.py                ← binds a policy to a LangGraph node
       inspect_bridge.py           ← agent_bridge(forward_generation_config=True)
 
-founderbuddy/  (DyPol)         ← first real consumer + case study
+dypol/                         ← first real consumer + case study
   backend/app/agents/providers.py ← _ROLE_POLICY replaced by runtime.policy.decide()
   backend/app/agents/graph.py     ← reads the decision from AgentState
   backend/app/agents/budget.py    ← DelegationBudget populated by the policy, not constants

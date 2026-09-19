@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ApiError, installUrl, loginUrl, me } from "@/lib/api";
+import { addPublicWorkspace, ApiError, installUrl, loginUrl, me } from "@/lib/api";
 import type { MeResponse } from "@/lib/api";
 
 export type AuthState =
@@ -26,7 +26,7 @@ export function useMe(): AuthState {
 
   useEffect(() => {
     let cancelled = false;
-    me()
+    loadMeWithDefaultWorkspace()
       .then((data) => {
         if (cancelled) return;
         if (data.installations.length === 0) {
@@ -52,6 +52,18 @@ export function useMe(): AuthState {
   }, []);
 
   return state;
+}
+
+async function loadMeWithDefaultWorkspace(): Promise<MeResponse> {
+  const data = await me();
+  if (data.installations.length > 0) return data;
+
+  try {
+    await addPublicWorkspace("supabase");
+    return me();
+  } catch {
+    return data;
+  }
 }
 
 export const goToLogin = () => {

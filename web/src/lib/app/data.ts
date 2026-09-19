@@ -557,6 +557,5 @@ export const ROUTE_TITLES: Readonly<Record<string, string>> = {
   digest: "Weekly digest",
   alerts: "Alerts",
   activity: "Recent activity",
-  settings: "Settings",
-  profile: "Profile",
+  settings: "Account",
 };

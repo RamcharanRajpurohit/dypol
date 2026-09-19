@@ -12,17 +12,22 @@ from app.routers import (
     activity,
     alerts,
     ask,
-    auth as auth_router,
     chat,
     dashboard,
     digest,
     health,
     leaderboard,
     repos,
-    settings as settings_router,
     webhooks,
     workspaces,
 )
+from app.routers import (
+    auth as auth_router,
+)
+from app.routers import (
+    settings as settings_router,
+)
+from app.telemetry.sentry import init_sentry
 from app.workers.scheduler import start_scheduler, stop_scheduler
 
 
@@ -92,6 +97,15 @@ async def lifespan(_: FastAPI):
 
 def create_app() -> FastAPI:
     s = get_settings()
+    # Before the app object exists, so the SDK's FastAPI integration can hook
+    # request handling. No SENTRY_DSN ⇒ no-op.
+    if init_sentry(
+        s.sentry_dsn,
+        environment=s.app_env,
+        traces_sample_rate=s.sentry_traces_sample_rate,
+        profiles_sample_rate=s.sentry_profiles_sample_rate,
+    ):
+        print(f"[startup] Sentry error monitoring enabled (env={s.app_env})")
     app = FastAPI(
         title="DyPol.ai API",
         version="0.1.0",

@@ -15,7 +15,7 @@ from typing import Any
 
 from app.agents.base import run_bounded_loop
 from app.agents.budget import DelegationBudget
-from app.agents.subagent_prompts import PR_ANALYST_PROMPT
+from app.agents.subagent_prompts import PR_ANALYST_PROMPT, bound_tools_block
 from app.agents.tracing import TraceCollector
 
 NAME = "pr_activity_analyst"
@@ -56,6 +56,8 @@ async def run(
     """
     model = providers_module.model_for_spec(role=MODEL_ROLE)
     tools = tools_module.build_tools(install, names=TOOL_NAMES)
+    # The prompt describes a superset; state what is really bound.
+    system_prompt = PROMPT + bound_tools_block({t.name for t in tools})
 
     # Tell the sub-agent the owner/org explicitly — its own system prompt does
     # not carry the ACTIVE WORKSPACE block, so without this it builds wrong
@@ -71,7 +73,7 @@ async def run(
     findings = await run_bounded_loop(
         model=model,
         tools=tools,
-        system_prompt=PROMPT,
+        system_prompt=system_prompt,
         user_task=user_task,
         budget=budget,
         trace=trace,

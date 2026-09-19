@@ -13,7 +13,7 @@ export function DigestView({ visible }: Props) {
   const { data: digest, error, loading } = useApi(
     visible ? "digest:7" : null,
     () => getDigest(7),
-    { ttlMs: 5 * 60_000 }, // digest is heavy — cache 5 min
+    { ttlMs: 30 * 60_000 }, // digest is heavy and rarely changes minute-to-minute
   );
 
   if (!visible) return null;

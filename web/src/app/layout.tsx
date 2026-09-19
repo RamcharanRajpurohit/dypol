@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { ApiQueryProvider } from "@/lib/api/QueryProvider";
 import { fontVariables } from "@/lib/fonts";
 import "./globals.css";
 
@@ -38,7 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={fontVariables} suppressHydrationWarning>
       <body className="text-ink" suppressHydrationWarning>
-        {children}
+        <ApiQueryProvider>{children}</ApiQueryProvider>
       </body>
     </html>
   );

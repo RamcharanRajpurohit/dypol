@@ -188,8 +188,13 @@ export function OrgSearch({ onAdded }: { onAdded?: () => void }) {
           autoCapitalize="off"
           autoCorrect="off"
           spellCheck={false}
-          className="bg-bg hairline focus:border-accent w-full rounded-[6px] border py-2.5 text-[13.5px] transition-colors focus:outline-none"
-          style={{ paddingLeft: 34, paddingRight: 36 }}
+          className="hairline focus:border-accent w-full rounded-[6px] border py-2.5 text-[13.5px] transition-colors focus:outline-none"
+          style={{
+            paddingLeft: 34,
+            paddingRight: 36,
+            background: "var(--surface)",
+            color: "var(--ink)",
+          }}
         />
         <span
           style={{
@@ -229,9 +234,6 @@ export function OrgSearch({ onAdded }: { onAdded?: () => void }) {
       {/* ── Cold start: curated orgs ──────────────────────────────── */}
       {showSuggestions && (
         <div style={{ marginTop: 14 }}>
-          <div className="label-tight" style={{ marginBottom: 8 }}>
-            Popular open-source orgs
-          </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {SUGGESTIONS.map((s) => (
               <button
@@ -250,10 +252,6 @@ export function OrgSearch({ onAdded }: { onAdded?: () => void }) {
               </button>
             ))}
           </div>
-          <p className="mt-3 text-[12px]" style={{ color: "var(--ink3)" }}>
-            Read-only access to public repos, commits, PRs, and issues. No
-            GitHub App install required.
-          </p>
         </div>
       )}
 

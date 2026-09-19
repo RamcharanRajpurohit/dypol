@@ -168,7 +168,13 @@ async def build_dashboard(install: dict[str, Any]) -> DashboardSummary:
         f"org:{org_lower} is:pr created:{prev_date}..{week_date}",
     )
 
-    repos = await list_org_repos(install_id, org_lower)
+    # A public workspace can hit GitHub's anonymous rate limit while loading
+    # the dashboard. Keep the page usable with the KPI sections that already
+    # succeeded instead of turning an optional data source failure into 403.
+    try:
+        repos = await list_org_repos(install_id, org_lower)
+    except GitHubError:
+        repos = []
     repos_sorted = sorted(
         repos,
         key=lambda r: r.pushed_at or datetime.min.replace(tzinfo=timezone.utc),
@@ -178,7 +184,10 @@ async def build_dashboard(install: dict[str, Any]) -> DashboardSummary:
     contribs = await _top_contributors(install_id, repos_sorted, week_iso, limit=5)
     active_devs_now = len(contribs)
 
-    alerts_all = await list_alerts(install_id, org_lower, limit=50)
+    try:
+        alerts_all = await list_alerts(install_id, org_lower, limit=50)
+    except GitHubError:
+        alerts_all = []
     events = await list_org_events(install, limit=8)
 
     # ── KPIs ──

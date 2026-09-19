@@ -100,6 +100,13 @@ class Settings(BaseSettings):
     langfuse_secret_key: str | None = Field(None, alias="LANGFUSE_SECRET_KEY")
     langfuse_host: str = Field("https://cloud.langfuse.com", alias="LANGFUSE_HOST")
 
+    # Sentry error monitoring (optional). Inert without SENTRY_DSN; environment
+    # tags follow APP_ENV. Traces sampling covers FastAPI request performance —
+    # keep it low in prod (it bills against the transactions quota).
+    sentry_dsn: str | None = Field(None, alias="SENTRY_DSN")
+    sentry_traces_sample_rate: float = Field(0.1, alias="SENTRY_TRACES_SAMPLE_RATE")
+    sentry_profiles_sample_rate: float = Field(0.0, alias="SENTRY_PROFILES_SAMPLE_RATE")
+
     # ──────────────────────────────────────────────────────────────
     # Cost & reliability controls
     # ──────────────────────────────────────────────────────────────

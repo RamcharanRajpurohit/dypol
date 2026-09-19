@@ -757,6 +757,24 @@ def _slim_rest_list(path: str, data: Any) -> Any:
     actually matter. Only applies to plain lists of dicts; anything else passes
     through untouched (``_truncate`` still guards the size).
     """
+    # /installation/repositories wraps its list in {"total_count", "repositories"}
+    # rather than returning a bare list, so it fell through every slimming rule
+    # below and hit the 24 KB truncation cap — 170 KB collapsed into a single
+    # `_preview` STRING. The model then guessed the repo count from a fragment
+    # and got it wrong while sounding certain. Unwrap, slim, and keep the count.
+    if isinstance(data, dict) and isinstance(data.get("repositories"), list):
+        repos = data["repositories"]
+        if repos and isinstance(repos[0], dict):
+            slim = [_slim_repo(r) for r in repos]
+            private = sum(1 for r in repos if r.get("private"))
+            return {
+                "total_count": data.get("total_count", len(repos)),
+                "_returned": len(slim),
+                "_private_count": private,
+                "_public_count": len(repos) - private,
+                "repository_selection": data.get("repository_selection"),
+                "repositories": slim,
+            }
     if not isinstance(data, list) or not data or not isinstance(data[0], dict):
         return data
     p = path.lower()

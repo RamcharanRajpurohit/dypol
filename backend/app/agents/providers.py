@@ -284,6 +284,35 @@ _QUOTA_SUBSTRINGS = (
 )
 
 
+# A request the provider structurally cannot accept — the payload exceeds its
+# context or per-minute token ceiling. Distinct from a quota error: waiting
+# does not help, and neither does the provider's cheaper fallback model, which
+# shares the same ceiling.
+_TOO_LARGE_SUBSTRINGS = (
+    "request too large",
+    "request_too_large",
+    "413",
+    "context length",
+    "context_length_exceeded",
+    "maximum context",
+    "too many tokens",
+)
+
+
+def is_context_error(exc: BaseException) -> bool:
+    """True if ``exc`` means "this payload is too big for this provider".
+
+    Measured: Groq's free tier caps `openai/gpt-oss-120b` at 8K tokens/min,
+    while a real agent turn here carries 12–25K input tokens (system prompt +
+    tool schemas + accumulated tool results). Groq answers a 50-token probe and
+    413s on a 12K one — so it can never serve a production turn, and its
+    fallback model shares the ceiling. Detecting this lets the chain skip the
+    whole provider instead of spending two calls proving it twice.
+    """
+    msg = str(exc).lower()
+    return any(sub in msg for sub in _TOO_LARGE_SUBSTRINGS)
+
+
 def is_quota_error(exc: BaseException) -> bool:
     """True if ``exc`` looks like a rate-limit / quota / resource-exhausted
     response from any provider — by message substring OR exception type name."""

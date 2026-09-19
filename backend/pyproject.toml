@@ -57,6 +57,10 @@ web = [
 observability = [
     "langfuse>=4.0",
 ]
+# Error monitoring — Sentry (optional; inert without SENTRY_DSN).
+sentry = [
+    "sentry-sdk[fastapi]>=2.19",
+]
 # Fully-offline embeddings (no API key, no per-call cost). Pulls torch +
 # CUDA stack (~multi-GB) — opt-in only. Not needed when using Gemini/Voyage/
 # OpenAI embedders.

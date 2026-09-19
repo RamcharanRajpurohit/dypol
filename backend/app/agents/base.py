@@ -167,24 +167,64 @@ async def run_bounded_loop(
                 )
             )
 
-    # Loop cap reached without a tool-free answer. Make one last attempt to
-    # get a clean text answer; fall back to whatever text we last saw.
+    # Loop cap reached without a tool-free answer — the investigation was
+    # TRUNCATED, not completed.
+    #
+    # This is where a sub-agent used to emit a false negative. Asked simply for
+    # "your best concise answer", a model that had spent all its turns just
+    # navigating directories would report its mid-investigation state ("I could
+    # not read that path") as a finding — and the orchestrator, with no way to
+    # tell truncation from completion, relayed it to the user as fact. The
+    # path in question was readable the whole time; one more call would have
+    # got it.
+    #
+    # Two things fix that: make the model separate "confirmed absent" from
+    # "never checked", and mark the result as partial so the caller can tell.
     try:
         final: AIMessage = await model.ainvoke(
             messages
             + [
                 HumanMessage(
                     content=(
-                        "Tool budget for this task is exhausted. Give your best "
-                        "concise answer now using only the findings above. Do not "
-                        "request any more tools."
+                        "Your tool budget for this task is now exhausted — your "
+                        "investigation is INCOMPLETE, not finished. Summarise "
+                        "using only what you actually observed, and separate the "
+                        "two cases explicitly:\n"
+                        "  • CONFIRMED — you fetched it and can state what it "
+                        "shows.\n"
+                        "  • NOT CHECKED — you ran out of budget first. Name the "
+                        "specific paths or queries still worth trying.\n"
+                        "Never report 'could not read' or 'unable to locate' for "
+                        "something you simply did not get to: absence of evidence "
+                        "here is budget exhaustion, not evidence of absence. Do "
+                        "not request any more tools."
                     )
                 )
             ]
         )
         text = _coerce_text(final.content)
         if text:
-            return text
+            return _mark_truncated(text, budget)
     except Exception:
         pass
-    return last_text or "I could not complete the analysis within the tool budget."
+    return _mark_truncated(
+        last_text or "No findings were gathered before the tool budget ran out.",
+        budget,
+    )
+
+
+def _mark_truncated(text: str, budget: DelegationBudget) -> str:
+    """Tag a partial sub-agent result so the caller cannot mistake it for a
+    finished one.
+
+    The orchestrator reads this string as a tool result; without an explicit
+    marker it has no way to distinguish "searched exhaustively, genuinely
+    absent" from "ran out of turns after six calls". The prompts instruct it to
+    surface this to the user rather than present a truncated finding as settled.
+    """
+    return (
+        "[PARTIAL RESULT — this sub-agent hit its tool-call limit and stopped "
+        "mid-investigation. Anything below marked NOT CHECKED is unverified; do "
+        "NOT report it to the user as established fact. Re-delegate with a "
+        "narrower, more specific task if it matters.]\n\n" + text
+    )

@@ -29,8 +29,7 @@ export function DashboardClient() {
     return (
       <CenteredMessage
         caption="Connect a GitHub account"
-        title="Pick where to install DyPol"
-        body="DyPol reads your repos via the GitHub App. Choose your personal account or any organization you're a member of."
+        title="Choose a workspace"
       >
         <OrgPicker onChanged={() => window.location.reload()} />
       </CenteredMessage>

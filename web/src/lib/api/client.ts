@@ -151,7 +151,6 @@ export async function* sseStream(
 
       // Frames are separated by a blank line. Normalise CRLF first.
       let sep: number;
-      // eslint-disable-next-line no-cond-assign
       while ((sep = indexOfFrameBoundary(buffer)) !== -1) {
         const raw = buffer.slice(0, sep);
         // Advance past the boundary (handles "\n\n" and "\r\n\r\n").

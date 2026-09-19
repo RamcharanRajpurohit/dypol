@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import type { ChatSession } from "@/lib/api";
 import { useOrg } from "@/lib/api/OrgContext";
+import { goToInstall } from "@/lib/api/useMe";
 import type { Route } from "@/lib/app/types";
 import { cn } from "@/lib/cn";
 import { Avatar } from "./Avatar";
@@ -10,15 +12,11 @@ import {
   BellIcon,
   ChatIcon,
   ChevronDownIcon,
-  ChevronUpIcon,
   ClockIcon,
   DashboardIcon,
   DigestIcon,
   MoonIcon,
-  PeopleIcon,
-  PlusIcon,
   RepoIcon,
-  SettingsIcon,
   SunIcon,
 } from "./icons";
 
@@ -35,23 +33,23 @@ interface SidebarProps {
 }
 
 interface NavLink {
-  route: Route;
+  route?: Route;
   label: string;
   icon: React.ReactNode;
   rightDot?: boolean;
   elevated?: boolean;
+  startsNewChat?: boolean;
 }
 
 const OVERVIEW_LINKS: ReadonlyArray<NavLink> = [
   { route: "dashboard", label: "Dashboard", icon: <DashboardIcon /> },
   { route: "digest", label: "Weekly digest", icon: <DigestIcon /> },
   { route: "alerts", label: "Alerts", icon: <BellIcon />, rightDot: true },
-  { route: "ask", label: "Ask anything", icon: <ChatIcon />, elevated: true },
+  { label: "New chat", icon: <ChatIcon />, elevated: true, startsNewChat: true },
 ];
 
 const PEOPLE_LINKS: ReadonlyArray<NavLink> = [
-  { route: "leaderboard", label: "Leaderboard", icon: <BarsIcon /> },
-  { route: "leaderboard", label: "All devs", icon: <PeopleIcon /> },
+  { route: "leaderboard", label: "Developers", icon: <BarsIcon /> },
 ];
 
 const CODE_LINKS: ReadonlyArray<NavLink> = [
@@ -70,10 +68,9 @@ export function Sidebar({
   isDark,
   onToggleTheme,
 }: SidebarProps) {
-  const { me, activeOrg } = useOrg();
-  const activeInstall = me.installations.find(
-    (i) => i.account_login === activeOrg,
-  );
+  const { me, activeOrg, setActiveOrg } = useOrg();
+  const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
+  const workspaceMenuRef = useRef<HTMLDivElement | null>(null);
   const userInitials = (me.user.name ?? me.user.login)
     .split(/\s+/)
     .map((s) => s[0])
@@ -81,15 +78,32 @@ export function Sidebar({
     .join("")
     .toUpperCase();
 
+  useEffect(() => {
+    if (!workspaceMenuOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (!workspaceMenuRef.current?.contains(e.target as Node)) {
+        setWorkspaceMenuOpen(false);
+      }
+    };
+    document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
+  }, [workspaceMenuOpen]);
+
   const renderItem = (item: NavLink, key: string | number) => (
     <button
       key={key}
       type="button"
-      onClick={() => onRoute(item.route)}
+      onClick={() => {
+        if (item.startsNewChat) {
+          onNewConversation();
+        } else if (item.route) {
+          onRoute(item.route);
+        }
+      }}
       className={cn(
         "nav-item w-full text-left",
         item.elevated && "elevated",
-        route === item.route && "active",
+        item.route && route === item.route && "active",
       )}
     >
       {item.icon}
@@ -100,12 +114,17 @@ export function Sidebar({
 
   return (
     <aside className="sidebar">
-      <div className="hairline border-b px-3 pt-3 pb-3">
+      <div
+        ref={workspaceMenuRef}
+        className="hairline relative border-b px-3 pt-3 pb-3"
+      >
         <button
           type="button"
-          onClick={() => onRoute("settings")}
-          className="hover:bg-[var(--warm-tint)] flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors"
-          title="Workspace settings"
+          onClick={() => setWorkspaceMenuOpen((v) => !v)}
+          className="hover:bg-[var(--warm-tint)] flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors"
+          title="Switch workspace"
+          aria-haspopup="listbox"
+          aria-expanded={workspaceMenuOpen}
         >
           <Avatar
             initials={(activeOrg ?? "?").slice(0, 1).toUpperCase()}
@@ -119,23 +138,64 @@ export function Sidebar({
             >
               {activeOrg ?? "No workspace"}
             </span>
-            <span
-              className="mono block text-[10.5px]"
-              style={{ color: "var(--ink3)", letterSpacing: ".04em" }}
-            >
-              {activeInstall
-                ? `${activeInstall.account_type ?? "—"} · ${
-                    activeInstall.mode === "public"
-                      ? "public read-only"
-                      : activeInstall.repository_selection === "selected"
-                      ? "selected repos"
-                      : "all repos"
-                  }`
-                : "Pick a workspace"}
-            </span>
           </span>
           <ChevronDownIcon style={{ color: "var(--ink3)" }} />
         </button>
+
+        {workspaceMenuOpen && (
+          <div
+            className="surface hairline absolute left-3 right-3 top-[calc(100%-4px)] z-30 overflow-hidden rounded-md"
+            style={{ boxShadow: "0 16px 40px -12px rgb(20 17 13 / 0.25)" }}
+            role="listbox"
+          >
+            {me.installations.map((i) => (
+              <button
+                key={i.install_id}
+                type="button"
+                onClick={() => {
+                  setActiveOrg(i.account_login);
+                  setWorkspaceMenuOpen(false);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px]"
+                style={{
+                  background:
+                    i.account_login === activeOrg
+                      ? "var(--hairline)"
+                      : "transparent",
+                  border: 0,
+                  color: "var(--ink)",
+                  cursor: "pointer",
+                  font: "inherit",
+                }}
+              >
+                <span
+                  className="dot"
+                  style={{
+                    background:
+                      i.account_login === activeOrg
+                        ? "var(--accent)"
+                        : "var(--ink3)",
+                  }}
+                />
+                <span className="truncate">{i.account_login}</span>
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={goToInstall}
+              className="hairline block w-full px-3 py-2 text-left text-[12.5px]"
+              style={{
+                borderTop: "1px solid var(--hairline)",
+                background: "transparent",
+                color: "var(--ink2)",
+                cursor: "pointer",
+                font: "inherit",
+              }}
+            >
+              Install another workspace
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="scroll flex-1 overflow-y-auto">
@@ -155,18 +215,7 @@ export function Sidebar({
         </div>
 
         <div className="nav-group">
-          <div className="nav-label label-tight flex items-center justify-between">
-            <span>Recent conversations</span>
-            <button
-              type="button"
-              title="New conversation"
-              onClick={onNewConversation}
-              className="iconbtn"
-              style={{ width: 20, height: 20 }}
-            >
-              <PlusIcon />
-            </button>
-          </div>
+          <div className="nav-label label-tight">Recent conversations</div>
 
           <div style={{ marginLeft: 0, paddingLeft: 0, borderLeft: 0 }}>
             {chatSessions.length === 0 && (
@@ -243,66 +292,38 @@ export function Sidebar({
             )}
           </div>
         </div>
-
-        <div className="nav-group">
-          <div className="nav-label label-tight">Workspace</div>
-          {renderItem(
-            { route: "settings", label: "Settings", icon: <SettingsIcon /> },
-            "settings",
-          )}
-        </div>
       </div>
 
       <div className="hairline border-t px-3 pt-2 pb-3">
-        <button
-          type="button"
-          onClick={() => onRoute("profile")}
-          className={cn(
-            "hover:bg-[var(--warm-tint)] flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left transition-colors",
-            route === "profile" && "bg-[var(--warm-tint)]",
-          )}
-          title="Open profile"
-        >
-          {me.user.avatar_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={me.user.avatar_url}
-              alt={me.user.login}
-              width={28}
-              height={28}
-              style={{ borderRadius: "50%" }}
-            />
-          ) : (
-            <Avatar initials={userInitials} color={1} />
-          )}
-          <span className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 px-2 py-1.5">
+          <button
+            type="button"
+            onClick={() => onRoute("settings")}
+            className={cn(
+              "hover:bg-[var(--warm-tint)] flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md px-0 py-1 text-left transition-colors",
+              route === "settings" && "bg-[var(--warm-tint)]",
+            )}
+            title="Open account"
+          >
+            {me.user.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={me.user.avatar_url}
+                alt={me.user.login}
+                width={28}
+                height={28}
+                style={{ borderRadius: "50%" }}
+              />
+            ) : (
+              <Avatar initials={userInitials} color={1} />
+            )}
             <span
-              className="block truncate text-[13px]"
+              className="block min-w-0 truncate text-[13px]"
               style={{ color: "var(--ink)" }}
             >
               {me.user.name ?? me.user.login}
             </span>
-            <span
-              className="mono block text-[10.5px]"
-              style={{ color: "var(--ink3)", letterSpacing: ".04em" }}
-            >
-              @{me.user.login}
-            </span>
-          </span>
-          <ChevronUpIcon style={{ color: "var(--ink3)" }} />
-        </button>
-        <div className="mt-2 flex items-center justify-between px-2">
-          <span
-            className="mono flex items-center gap-1.5 text-[10px]"
-            style={{
-              color: "var(--ink3)",
-              letterSpacing: ".08em",
-              textTransform: "uppercase",
-            }}
-          >
-            <span className="pulse-mini" style={{ background: "var(--ok)" }} />
-            v1.0 · operational
-          </span>
+          </button>
           <button
             type="button"
             className="iconbtn"

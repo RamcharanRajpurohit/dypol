@@ -16,7 +16,7 @@ export function ActivityView({ visible }: Props) {
   const { data: events, error, loading } = useApi(
     visible ? "activity" : null,
     () => getActivity(100),
-    { ttlMs: 30_000 },
+    { ttlMs: 60_000 },
   );
 
   if (!visible) return null;

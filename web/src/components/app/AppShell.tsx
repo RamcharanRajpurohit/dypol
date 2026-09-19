@@ -8,19 +8,16 @@ import {
 } from "@/lib/api";
 import type { ChatSession } from "@/lib/api";
 import { useOrg } from "@/lib/api/OrgContext";
-import { ROUTE_TITLES } from "@/lib/app/data";
 import type { Dev, Route } from "@/lib/app/types";
 import { useTheme } from "@/lib/app/useTheme";
 import { DevDrawer } from "./DevDrawer";
 import { Sidebar } from "./Sidebar";
-import { Topbar } from "./Topbar";
 import { ActivityView } from "./views/ActivityView";
 import { AlertsView } from "./views/AlertsView";
 import { ChatView, type ChatViewHandle } from "./views/ChatView";
 import { DashboardView } from "./views/DashboardView";
 import { DigestView } from "./views/DigestView";
 import { LeaderboardView } from "./views/LeaderboardView";
-import { ProfileView } from "./views/ProfileView";
 import { RepoDetailView } from "./views/RepoDetailView";
 import { ReposView } from "./views/ReposView";
 import { SettingsView } from "./views/SettingsView";
@@ -64,11 +61,6 @@ export function AppShell() {
       .then((s) => {
         if (cancelled) return;
         setChatSessions(s);
-        // Auto-select the most-recent session if user lands on Ask.
-        const first = s[0];
-        if (first && !activeSessionId) {
-          setActiveSessionId(first.id);
-        }
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -79,21 +71,11 @@ export function AppShell() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeOrg]);
 
   const onRoute = (next: Route) => {
     setRoute(next);
     if (scrollRootRef.current) scrollRootRef.current.scrollTop = 0;
-  };
-
-  const onAsk = (question: string) => {
-    setRoute("ask");
-    setActiveQuestion(question);
-    // Open a fresh session for the kicked-off question
-    void newChat().then(() => {
-      setTimeout(() => askRef.current?.ask(question), 150);
-    });
   };
 
   const onSelectSession = (id: string) => {
@@ -153,12 +135,6 @@ export function AppShell() {
         />
 
         <section className="main-col relative">
-          <Topbar
-            crumbHere={ROUTE_TITLES[route] ?? "Dashboard"}
-            onAsk={onAsk}
-            onRoute={onRoute}
-          />
-
           <div ref={scrollRootRef} className="scroll" style={{ position: "relative" }}>
             <DashboardView visible={route === "dashboard"} onRoute={onRoute} />
             <LeaderboardView visible={route === "leaderboard"} />
@@ -186,7 +162,6 @@ export function AppShell() {
             <AlertsView visible={route === "alerts"} />
             <ActivityView visible={route === "activity"} />
             <SettingsView visible={route === "settings"} />
-            <ProfileView visible={route === "profile"} />
           </div>
         </section>
       </div>

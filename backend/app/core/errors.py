@@ -9,6 +9,16 @@ class GitHubError(Exception):
         self.url = url
         super().__init__(f"GitHub {status}: {message}")
 
+    @property
+    def status_code(self) -> int:
+        """Mirror of the response mapping in ``_github_handler``.
+
+        Sentry's Starlette integration only auto-captures handled exceptions
+        whose ``status_code`` is 5xx — exposing it here reports upstream
+        GitHub failures while 4xx (rate limits, missing repos) stay quiet.
+        """
+        return self.status if 400 <= self.status < 600 else 502
+
 
 class NotFoundError(Exception):
     pass

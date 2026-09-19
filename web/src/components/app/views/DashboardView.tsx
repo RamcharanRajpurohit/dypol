@@ -6,7 +6,6 @@ import type { Alert, Contributor, Kpi, Repo } from "@/lib/api";
 import { useOrg } from "@/lib/api/OrgContext";
 import { useApi } from "@/lib/api/useApi";
 import type { Route } from "@/lib/app/types";
-import { ChatIcon, ExportIcon } from "../icons";
 import { KpiSkeleton, RowSkeleton, Skeleton } from "../Skeleton";
 import { formatPrCount } from "@/lib/app/format";
 
@@ -20,7 +19,7 @@ export function DashboardView({ onRoute, visible }: Props) {
   const { data, error, loading } = useApi(
     visible ? "dashboard" : null,
     () => getDashboard(),
-    { ttlMs: 60_000 },
+    { ttlMs: 2 * 60_000 },
   );
 
   if (!visible) return null;
@@ -42,7 +41,7 @@ export function DashboardView({ onRoute, visible }: Props) {
   return (
     <div className="container-app">
       {/* ── Hero ───────────────────────────────────────────── */}
-      <header className="mb-10 flex items-end justify-between gap-6 flex-wrap">
+      <header className="mb-10">
         <div>
           <div className="caption mb-2">
             {data.period_label} · {data.org}
@@ -58,20 +57,6 @@ export function DashboardView({ onRoute, visible }: Props) {
           >
             {data.headline}
           </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button type="button" className="btn-secondary">
-            <ExportIcon />
-            Export
-          </button>
-          <button
-            type="button"
-            className="btn-primary-sm"
-            onClick={() => onRoute("ask")}
-          >
-            <ChatIcon />
-            Ask anything
-          </button>
         </div>
       </header>
 

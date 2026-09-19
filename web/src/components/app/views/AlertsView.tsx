@@ -12,17 +12,14 @@ export function AlertsView({ visible }: Props) {
   const { data: alerts, error, loading } = useApi(
     visible ? "alerts" : null,
     () => getAlerts(200),
-    { ttlMs: 60_000 },
+    { ttlMs: 2 * 60_000 },
   );
 
   if (!visible) return null;
 
   return (
     <div className="container-app">
-      <h1 className="h-page mb-2">Alerts</h1>
-      <p className="text-[13.5px]" style={{ color: "var(--ink2)" }}>
-        Stuck PRs, failing checks, Dependabot, and code-scanning findings.
-      </p>
+      <h1 className="h-page mb-8">Alerts</h1>
 
       {loading && !alerts && (
         <div className="card mt-8 overflow-hidden">
@@ -39,19 +36,13 @@ export function AlertsView({ visible }: Props) {
       )}
 
       {alerts && alerts.length === 0 && (
-        <div className="card mt-8 max-w-2xl p-6">
-          <p className="ai-prose">
-            No active alerts.{" "}
-            <span className="muted">
-              Healthy week. We'll surface stuck PRs, failing checks, and security findings here as
-              they appear.
-            </span>
-          </p>
+        <div className="card max-w-2xl p-5 text-[13px]" style={{ color: "var(--ink2)" }}>
+          No alerts.
         </div>
       )}
 
       {alerts && alerts.length > 0 && (
-        <div className="card mt-8">
+        <div className="card">
           {alerts.map((alert, i) => (
             <div
               key={`${alert.repo}-${alert.kind}-${alert.ref}-${i}`}

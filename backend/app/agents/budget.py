@@ -20,13 +20,25 @@ exception. The model reads the error and answers with what it already has.
 """
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 
 # Per-loop cap: the max number of tool-calling turns any single bounded loop
 # (orchestrator step or sub-agent) will iterate before it must produce a final
 # answer. Kept here so both the orchestrator and ``app/agents/base.py`` import
 # one shared constant.
-MAX_TOOL_TURNS = 6
+#
+# Raised from 6 after a measured failure: a code-analysis sub-agent spent all
+# six calls just walking directories (contents → src → src/lib → src/app →
+# src/app/api), hit the cap before opening a single file, and reported "could
+# not read" for a path that was readable the whole time. Six turns is enough to
+# answer a metrics question and not enough to read code.
+#
+# This is the "reasoning effort" axis in FUTURE_PLAN §2.2 — a global constant
+# applied identically to "how many PRs merged last week" and "why did the auth
+# refactor break billing". Env-overridable so it can be swept per workload
+# until a policy sets it per query.
+MAX_TOOL_TURNS = int(os.environ.get("AGENT_SUBAGENT_MAX_TURNS", "12"))
 
 
 @dataclass
@@ -41,7 +53,12 @@ class DelegationBudget:
 
     max_depth: int = 1
     max_delegations: int = 3
-    global_tool_cap: int = 24
+    # Raised alongside MAX_TOOL_TURNS: a sub-agent allowed 12 turns cannot
+    # actually use them if the shared pool runs dry at 24. This is the real
+    # cost ceiling for a turn — every tool call is an API request and grows the
+    # context the next model call pays for — so it is env-overridable and
+    # deliberately not generous.
+    global_tool_cap: int = int(os.environ.get("AGENT_GLOBAL_TOOL_CAP", "40"))
     delegations_used: int = 0
     tool_calls_used: int = 0
     _seen: set = field(default_factory=set)

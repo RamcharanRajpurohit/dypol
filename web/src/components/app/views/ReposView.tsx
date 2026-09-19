@@ -18,7 +18,7 @@ export function ReposView({ visible, onSelectRepo }: Props) {
   const { data: repos, error, loading } = useApi(
     visible ? "repos" : null,
     () => getRepos(),
-    { ttlMs: 60_000 },
+    { ttlMs: 5 * 60_000 },
   );
   const [filter, setFilter] = useState<Filter>("all");
 
@@ -75,7 +75,6 @@ export function ReposView({ visible, onSelectRepo }: Props) {
             {f === "all" ? "All" : f === "ok" ? "Healthy" : f === "neutral" ? "Maintenance" : f.charAt(0).toUpperCase() + f.slice(1)}
           </button>
         ))}
-        <span className="label-tight ml-auto">Live</span>
       </div>
 
       <div className="card overflow-hidden">

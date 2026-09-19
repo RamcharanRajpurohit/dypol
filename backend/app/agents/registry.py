@@ -184,6 +184,13 @@ def _make_delegate_tool(
         if name in _REPO_AWARE:
             run_kwargs["focus_repo"] = focus_repo
 
+        # Count the sub-agent's own tool calls so the orchestrator can tell how
+        # much work actually backs the findings. Measured, not asserted: on
+        # identical inputs a sub-agent was observed reading 8 route files on one
+        # run and ZERO on the next, returning the same confident "no problems
+        # found" both times. Text alone cannot distinguish those, so the
+        # orchestrator relayed the unearned one as an audit result.
+        calls_before = len(trace.as_chat_tool_calls())
         try:
             result = await spec.run(install, task, **run_kwargs)
         except Exception as exc:  # a sub-agent failure must stay recoverable
@@ -193,10 +200,31 @@ def _make_delegate_tool(
                 "hint": "Answer using the data already gathered, or try a different approach.",
             }
 
-        return {
+        rows = trace.as_chat_tool_calls()[calls_before:]
+        prefix = f"{name}→"
+        evidence = [r["name"][len(prefix):] for r in rows if r["name"].startswith(prefix)]
+
+        payload: dict[str, Any] = {
             "findings": result.get("findings", ""),
             "citations": result.get("citations", []),
+            # Evidence metadata — how much work backs the findings above.
+            "tool_calls_made": len(evidence),
+            "tools_used": evidence,
         }
+        if not evidence:
+            # A conclusion reached without opening anything is a guess. Say so
+            # in-band; the orchestrator is instructed to never pass this on as
+            # a finding.
+            payload["unverified"] = True
+            payload["warning"] = (
+                "This sub-agent made ZERO tool calls — it inspected nothing and "
+                "its findings are unsubstantiated guesswork. Do NOT report them "
+                "as fact, and in particular do not report a negative result "
+                "('no problems found') on this basis. Either investigate the "
+                "specific files yourself with github_get, or re-delegate a "
+                "narrower task naming the exact paths to open."
+            )
+        return payload
 
     return structured_tool_cls.from_function(
         coroutine=_delegate,

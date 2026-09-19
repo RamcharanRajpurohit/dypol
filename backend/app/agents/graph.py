@@ -19,7 +19,9 @@ has tool calls and we're under the cap, else to END.
 """
 from __future__ import annotations
 
+import asyncio
 import json
+import os
 import re
 import time
 from typing import Annotated, Any, TypedDict
@@ -33,11 +35,27 @@ from app.agents.prompts import build_system_prompt
 from app.agents.providers import (
     PROVIDER_REGISTRY,
     build_model,
+    is_context_error,
     is_quota_error,
     model_chain,
 )
 from app.agents.trace import run_tools_with_trace
 from app.core.config import get_settings
+
+# Same-provider retries before advancing the fallback chain on an EMPTY
+# response. Empties are transient (a dud candidate), not a broken
+# provider, so retrying in place clears them; advancing spends a
+# provider per dud and four duds exhaust the whole chain.
+# Measured on a failing run: gemini emptied 2x at idx=0 and 2x at idx=1 before
+# the chain ran out, while the very next run answered after a single empty.
+# The empty is stochastic, so the retry budget is what converts these.
+_EMPTY_RETRIES = 3
+
+# Per-attempt wall-clock budget. Taken from the amigo codebase, which caps
+# every LLM attempt (LLM_TIMEOUT_SECONDS) instead of letting one hung call
+# stall the whole turn. Nothing here had a timeout: a provider that accepted
+# the connection and then went quiet would hang the user's request forever.
+_LLM_TIMEOUT_S = float(os.environ.get("LLM_TIMEOUT_SECONDS", "90"))
 
 
 class AgentState(TypedDict):
@@ -112,6 +130,7 @@ def build_agent_graph(
         tool_choice = "any" if first_turn else "auto"
 
         last_err: Exception | None = None
+        empty_retries = 0
         while idx < len(chain):
             provider, use_fallback = chain[idx]
             try:
@@ -122,17 +141,27 @@ def build_agent_graph(
                     tool_choice=tool_choice,
                 )
                 start_ns = time.perf_counter_ns()
-                resp = await model.ainvoke(messages)
-                # An EMPTY response (no text AND no tool calls) is Gemini's
-                # MALFORMED_FUNCTION_CALL pathology — a "successful" dud. On the
-                # FIRST turn (where we forced a tool call) this means the model
-                # failed to produce one, so treat it as a provider FAILURE and
-                # advance the chain to a working model (e.g. flash → flash-lite),
-                # instead of looping on the broken model and dead-ending.
+                resp = await asyncio.wait_for(
+                    model.ainvoke(messages), timeout=_LLM_TIMEOUT_S
+                )
                 has_calls = bool(getattr(resp, "tool_calls", None))
                 has_text = bool(_extract_text(resp).strip())
-                if first_turn and not has_calls and not has_text:
+                if not has_calls and not has_text:
+                    # Empty candidate — no text AND no tool call. Gemini's
+                    # MALFORMED_FUNCTION_CALL pathology: a "successful" dud.
+                    #
+                    # Previously only the FIRST turn treated this as a failure;
+                    # a mid-conversation empty fell straight through to the
+                    # nudge and then to synthesize. And even on turn one it
+                    # advanced the chain, spending a provider on what is a
+                    # transient fault. Retry the same model in place first —
+                    # that is what actually clears it — and only advance once
+                    # the retries are used up.
+                    if empty_retries < _EMPTY_RETRIES:
+                        empty_retries += 1
+                        continue
                     last_err = RuntimeError("empty_response (malformed_function_call?)")
+                    empty_retries = 0
                     idx += 1
                     continue
                 # Success — record which step we landed on for the next turn.
@@ -140,14 +169,33 @@ def build_agent_graph(
                 return {"messages": [resp], "provider_idx": idx}
             except Exception as exc:  # quota OR hard error → try next step
                 last_err = exc
+                empty_retries = 0
+                # A too-large payload is a property of the PROVIDER, not of
+                # this model: its cheaper fallback shares the same ceiling, so
+                # trying that step just spends another call to fail identically.
+                # Skip every remaining step for this provider.
+                if is_context_error(exc):
+                    while idx < len(chain) and chain[idx][0] == provider:
+                        idx += 1
+                    continue
                 idx += 1
                 continue
 
         # Every provider/model exhausted this turn — terminal, friendly message.
-        reason = "quota" if (last_err and is_quota_error(last_err)) else "errors"
+        # Report the ACTUAL cause. This previously said "quota" whenever the
+        # last error loosely matched a quota substring — including Groq's 413 —
+        # which sent debugging after API keys that were perfectly healthy.
+        if last_err is None:
+            reason = "the model returned no usable output"
+        elif is_context_error(last_err):
+            reason = "the request was too large for the remaining providers"
+        elif is_quota_error(last_err):
+            reason = "quota"
+        else:
+            reason = f"errors ({type(last_err).__name__})"
         text = (
-            "All configured LLM providers are currently unavailable "
-            f"({reason}). Please try again in a moment."
+            "All configured LLM providers are currently unavailable — "
+            f"{reason}. Please try again in a moment."
         )
         return {
             "messages": [AIMessage(content=text)],
@@ -204,18 +252,48 @@ def build_agent_graph(
         order = list(range(start, len(chain))) + list(range(0, start))
         for idx in order:
             provider, use_fallback = chain[idx]
-            try:
-                model = build_model(provider, use_fallback=use_fallback)
-                start_ns = time.perf_counter_ns()
-                resp = await model.ainvoke(convo)
-                _record_usage(collector, resp, provider, use_fallback, start_ns)
-                text = _extract_text(resp).strip()
-                # Empty OR a raw tool-payload echo → try the next provider
-                # rather than persisting something the user can't read.
-                if text and not _looks_like_tool_payload(text):
-                    return {"messages": [resp]}
-            except Exception:
-                continue
+            # An empty candidate is TRANSIENT, not a broken provider. Retrying
+            # the same model usually succeeds; advancing the chain on the first
+            # empty spends a provider per dud, so four empties in a row exhaust
+            # every provider and dead-end in the fallback message below — the
+            # user gets "couldn't compose an answer" from a model that was
+            # working fine. Retry in place first, then advance.
+            for _attempt in range(_EMPTY_RETRIES + 1):
+                try:
+                    # Tools are BOUND here even though this node must not use
+                    # them. Measured: calling Gemini with NO tools declared,
+                    # against a conversation that already contains tool_calls
+                    # and ToolMessages, returns an EMPTY candidate ~5 times in
+                    # 6 — it cannot reconcile function-call history with zero
+                    # declared functions. Binding the schemas makes the history
+                    # valid and drops that to 0 in 3. This was the real cause of
+                    # "couldn't finish composing an answer": deterministic, not
+                    # transient, which is why retrying alone never fixed it.
+                    #
+                    # No tool_choice is passed: forcing "none" still emptied 1
+                    # in 3, while a plain bind was clean. The nudge above is
+                    # what keeps the model from actually calling anything.
+                    model = build_model(provider, use_fallback=use_fallback, tools=tools)
+                    start_ns = time.perf_counter_ns()
+                    resp = await asyncio.wait_for(
+                        model.ainvoke(convo), timeout=_LLM_TIMEOUT_S
+                    )
+                    _record_usage(collector, resp, provider, use_fallback, start_ns)
+                    text = _extract_text(resp).strip()
+                    # Tools are bound, so the model *could* still emit a call.
+                    # A tool call here is not an answer — treat it as a miss.
+                    if getattr(resp, "tool_calls", None) and not text:
+                        continue
+                    # A raw tool-payload echo is a content fault, not a
+                    # transient one — retrying the same model reproduces it, so
+                    # move on rather than burning a retry.
+                    if _looks_like_tool_payload(text):
+                        break
+                    if text:
+                        return {"messages": [resp]}
+                    # Empty → retry this same provider before advancing.
+                except Exception:
+                    break  # hard error: this provider is out, advance the chain
 
         return {
             "messages": [
@@ -244,10 +322,12 @@ def build_agent_graph(
                 HumanMessage(
                     content=(
                         "You stopped without answering. Call github_get now to "
-                        "fetch the data needed (e.g. "
-                        "/users/{login}/repos or /user/repos to list "
-                        "repositories), then answer my question directly. Do not "
-                        "greet me or repeat anything."
+                        "fetch the data needed. To list repositories use "
+                        "/installation/repositories (install mode) or "
+                        "/users/{login}/repos (public mode) — NOT "
+                        "/user/repos, which is blocked by the read-only "
+                        "allowlist and just wastes the call. Then answer "
+                        "directly. Do not greet me or repeat anything."
                     )
                 )
             ],
@@ -345,7 +425,15 @@ def _record_usage(
 def _looks_like_tool_payload(text: str) -> bool:
     """True if ``text`` is a serialized tool result rather than an answer."""
     t = text.strip()
-    if not t or t[0] not in "{[":
+    if not t:
+        return False
+    # A payload does not have to lead. Asked to justify itself, the model
+    # apologised in prose and then pasted ~2 KB of escaped github_get_response
+    # JSON — which sailed past the original leading-brace-only check. Catch a
+    # serialized function response wherever it appears.
+    if _FN_RESPONSE_RE.search(t):
+        return True
+    if t[0] not in "{[":
         return False  # prose, or a fenced code block — leave it alone
     head = t[:600]
     if _FN_RESPONSE_RE.search(head):
