@@ -138,7 +138,7 @@ export function SignInModal({ open, onClose }: Props) {
                 Continue with GitHub
               </button>
 
-              <div className="my-5 flex items-center gap-3">
+              {/* <div className="my-5 flex items-center gap-3">
                 <span className="rule-x" style={{ flex: 1 }} />
                 <span className="caption">or</span>
                 <span className="rule-x" style={{ flex: 1 }} />
@@ -160,7 +160,7 @@ export function SignInModal({ open, onClose }: Props) {
                 className="btn-primary mt-3 w-full justify-center"
               >
                 Continue with email
-              </button>
+              </button> */}
             </div>
           )}
 

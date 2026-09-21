@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { GitHubIcon } from "./icons";
+/* import { GitHubIcon } from "./icons"; */
 import { SignInModal } from "./SignInModal";
 
 const NAV_LINKS = [
@@ -56,10 +56,10 @@ export function MarketingHeader() {
             >
               Sign in
             </button>
-            <a href="#cta" className="btn-primary">
+            {/* <a href="#cta" className="btn-primary">
               <GitHubIcon />
               Install on GitHub
-            </a>
+            </a> */}
           </div>
         </nav>
       </header>
