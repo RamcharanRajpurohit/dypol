@@ -169,8 +169,8 @@ class Settings(BaseSettings):
     rag_max_repos_per_tick: int = Field(5, alias="RAG_MAX_REPOS_PER_TICK")
 
     # URLs
-    app_base_url: str = Field("http://localhost:8000", alias="APP_BASE_URL")
-    web_base_url: str = Field("http://localhost:3000", alias="WEB_BASE_URL")
+    app_base_url: str = Field("https://dypol.onrender.com", alias="APP_BASE_URL")
+    web_base_url: str = Field("https://www.dypol.dev", alias="WEB_BASE_URL")
 
     # Session
     session_secret: str = Field(..., alias="SESSION_SECRET")
@@ -185,7 +185,7 @@ class Settings(BaseSettings):
     app_host: str = Field("0.0.0.0", alias="APP_HOST")
     app_port: int = Field(8000, alias="APP_PORT")
     app_env: str = Field("dev", alias="APP_ENV")
-    cors_origins: str = Field("http://localhost:3000", alias="CORS_ORIGINS")
+    cors_origins: str = Field("https://www.dypol.dev", alias="CORS_ORIGINS")
 
     # Cache
     cache_ttl_repos: int = Field(300, alias="CACHE_TTL_REPOS")

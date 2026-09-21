@@ -6,7 +6,7 @@
  * - Reads `NEXT_PUBLIC_API_BASE_URL` from `.env.local`.
  */
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://dypol.onrender.com";
 
 // Module-level "active org" — set by <OrgProvider> on mount and on switch.
 // Endpoints that don't take an explicit `org` query param fall back to this.
