@@ -4,7 +4,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, HTMLResponse
+import json
+from itsdangerous import URLSafeSerializer, BadSignature
 
 from app.auth import oauth
 from app.auth.deps import current_user
@@ -29,7 +31,7 @@ async def login() -> RedirectResponse:
         max_age=600,
         httponly=True,
         secure=get_settings().is_prod,
-        samesite="lax",
+        samesite="none" if get_settings().is_prod else "lax",
         path="/auth",
     )
     return response
@@ -40,7 +42,16 @@ async def callback(
     request: Request,
     code: str = Query(...),
     state: str = Query(...),
+    error: str | None = Query(default=None),
+    error_description: str | None = Query(default=None),
 ) -> RedirectResponse:
+    # Handle OAuth errors from GitHub
+    if error:
+        raise HTTPException(
+            status_code=400,
+            detail=f"oauth_error: {error}: {error_description}"
+        )
+    
     expected = request.cookies.get(_STATE_COOKIE)
     if not expected or expected != state:
         raise HTTPException(status_code=400, detail="bad_oauth_state")
@@ -77,9 +88,45 @@ async def callback(
         upsert=True,
     )
 
-    response = RedirectResponse(url=f"{get_settings().web_base_url}/dashboard")
+    # Create a short-lived token to pass to the cookie-setter endpoint
+    s = get_settings()
+    serializer = URLSafeSerializer(s.session_secret)
+    payload = {"user_id": profile["id"], "login": profile["login"]}
+    token = serializer.dumps(json.dumps(payload))
+
+    # Redirect to same-origin endpoint to set cookie (avoids browser blocking)
+    response = RedirectResponse(
+        url=f"{s.app_base_url.rstrip('/')}/auth/set-session?token={token}"
+    )
     response.delete_cookie(_STATE_COOKIE, path="/auth")
-    write_session(response, {"user_id": profile["id"], "login": profile["login"]})
+    return response
+
+
+@router.get("/set-session")
+async def set_session(request: Request, token: str = Query(...)):
+    """Set session cookie and redirect to frontend. 
+    Same-origin endpoint to avoid browser cookie blocking on cross-origin redirects."""
+    s = get_settings()
+    serializer = URLSafeSerializer(s.session_secret)
+    
+    try:
+        payload_json = serializer.loads(token, max_age=60)
+        payload = json.loads(payload_json)
+    except (BadSignature, json.JSONDecodeError):
+        raise HTTPException(status_code=400, detail="invalid_session_token")
+    
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta http-equiv="refresh" content="0; url={s.web_base_url}/dashboard" />
+        <script>window.location.href = "{s.web_base_url}/dashboard";</script>
+    </head>
+    <body></body>
+    </html>
+    """
+    response = HTMLResponse(html)
+    write_session(response, payload)
     return response
 
 
