@@ -250,7 +250,9 @@ class Settings(BaseSettings):
     def load_private_key(self) -> str:
         """Resolve the App private key from inline env or file path."""
         if self.github_app_private_key:
-            return self.github_app_private_key.replace("\\n", "\n")
+            return (
+                self.github_app_private_key.strip().strip("\"'").replace("\\n", "\n")
+            )
         if self.github_app_private_key_path:
             path = Path(self.github_app_private_key_path)
             if not path.is_absolute():
