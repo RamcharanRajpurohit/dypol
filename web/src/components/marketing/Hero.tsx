@@ -72,9 +72,9 @@ export function Hero() {
               Install on GitHub
               <ArrowRightIcon />
             </a>
-            <a href="#video" className="btn-quiet">
+            {/* <a href="#video" className="btn-quiet">
               Or watch a 90-second tour <span aria-hidden>→</span>
-            </a>
+            </a> */}
           </div>
 
           <div className="mt-14 flex items-center gap-6">

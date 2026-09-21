@@ -7,9 +7,9 @@ import { SignInModal } from "./SignInModal";
 
 const NAV_LINKS = [
   { href: "#shift", label: "Product" },
-  { href: "#pricing", label: "Pricing" },
+  /* { href: "#pricing", label: "Pricing" }, */
   { href: "#methodology", label: "Methodology" },
-  { href: "#", label: "Changelog" },
+  /* { href: "#", label: "Changelog" }, */
 ] as const;
 
 export function MarketingHeader() {

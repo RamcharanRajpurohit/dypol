@@ -33,10 +33,9 @@ const FAQS: ReadonlyArray<Faq> = [
       <>
         Impact, Quality, Collaboration, Consistency &mdash; each on a 0–100 scale, derived from
         shipped work. The full formula is published, versioned, and runnable on your data. No
-        opaque magic.{" "}
-        <a href="#" className="ulink text-accent">
-          Read the methodology &rarr;
-        </a>
+        opaque magic.{/* . <a href="#" className="ulink text-accent">
+           Read the methodology &rarr;
+         </a> */}
       </>
     ),
     border: "top",

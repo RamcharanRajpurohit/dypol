@@ -1,4 +1,4 @@
-import { GitHubIcon } from "./icons";
+/* import { GitHubIcon } from "./icons"; */
 
 export function CtaSection() {
   return (
@@ -15,10 +15,10 @@ export function CtaSection() {
           <br />
           See the dashboard in <em>under ten minutes</em>.
         </p>
-        <a href="#" className="btn-primary">
+        {/* <a href="#" className="btn-primary">
           <GitHubIcon />
           Install on GitHub
-        </a>
+        </a> */}
       </div>
     </section>
   );

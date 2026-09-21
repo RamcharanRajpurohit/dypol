@@ -22,10 +22,9 @@ export function TrustSection() {
           <p className="text-[17px] leading-relaxed">
             Four signals: Impact, Quality, Collaboration, Consistency. Derived from review depth,
             revert rate, ownership of PRs that ship, and the work load engineers carry for one
-            another. Never LOC. Never commit count.{" "}
-            <a href="#" className="ulink text-accent ml-1">
-              Read the methodology &rarr;
-            </a>
+            another. Never LOC. Never commit count.{/* . <a href="#" className="ulink text-accent ml-1">
+               Read the methodology &rarr;
+             </a> */}
           </p>
         </div>
         <div className="col-span-12 lg:col-span-4">
