@@ -61,6 +61,15 @@ _BLOCKED_PATTERNS: tuple[re.Pattern[str], ...] = (
 # full slimmed repo/PR/commit list while still bounding pathological payloads.
 _MAX_RESPONSE_BYTES = 24_000
 
+# Binary/image extensions that must never be passed to a text model.
+# When github_get returns these as base64, the model errors with
+# "this model does not support image input" — so block them upfront
+# with a clear, recoverable note instead.
+_IMAGE_EXTENSIONS: tuple[str, ...] = (
+    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg",
+    ".ico", ".bmp", ".tiff", ".avif",
+)
+
 
 # ──────────────────────────────────────────────────────────────────
 # Tool descriptions — single source of truth shared by the legacy Gemini
@@ -102,9 +111,9 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
     "workspace_info": (
         "Returns information about the active workspace: org login, "
         "account type (User/Organization), mode (install/public), and "
-        "the current GitHub API rate-limit budget. Call this first if "
-        "you don't know the org name, or if you suspect rate limits "
-        "are tight."
+        "the current GitHub API rate-limit budget. This is already "
+        "summarized in the ACTIVE WORKSPACE block above — call only "
+        "if you need the rate-limit numbers or the org name changed."
     ),
     "web_search": (
         "Search the public web for current, external information the GitHub "
@@ -351,6 +360,19 @@ def _maybe_file_window(data: Any, params: dict[str, Any]) -> dict[str, Any] | No
         raw_bytes = base64.b64decode(content_b64)
     except Exception:
         return None
+    path_lower = (data.get("path") or "").lower()
+    if any(path_lower.endswith(ext) for ext in _IMAGE_EXTENSIONS):
+        return {
+            "path": data.get("path"),
+            "size": data.get("size"),
+            "sha": data.get("sha"),
+            "note": (
+                "Image/binary file — not returned as text; "
+                "model cannot process image input. "
+                "View it via the URL below if needed."
+            ),
+            "html_url": data.get("html_url"),
+        }
     # Reject obvious binary (NUL byte) — not useful to the model as text.
     if b"\x00" in raw_bytes[:4096]:
         return {
@@ -720,13 +742,20 @@ def _slim_commit(c: dict[str, Any]) -> dict[str, Any]:
     commit = c.get("commit") or {}
     author = commit.get("author") or {}
     gh_author = c.get("author") or {}
-    return {
+    raw_message = commit.get("message") or ""
+    lines = raw_message.split("\n")
+    subject = lines[0][:140] if lines else ""
+    body = "\n".join(lines[2:])[:600] if len(lines) > 2 else ""
+    out: dict[str, Any] = {
         "sha": (c.get("sha") or "")[:10],
-        "message": (commit.get("message") or "").split("\n")[0][:140],
+        "message": subject,
         "author": gh_author.get("login") or author.get("name"),
         "date": author.get("date"),
         "url": c.get("html_url"),
     }
+    if body.strip():
+        out["body"] = body.strip()
+    return out
 
 
 def _slim_pr_or_issue(it: dict[str, Any]) -> dict[str, Any]:

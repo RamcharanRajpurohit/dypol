@@ -10,6 +10,7 @@ import type { ChatSession } from "@/lib/api";
 import { useOrg } from "@/lib/api/OrgContext";
 import type { Dev, Route } from "@/lib/app/types";
 import { useTheme } from "@/lib/app/useTheme";
+import { DefaultWorkspaceNotice } from "./DefaultWorkspaceNotice";
 import { DevDrawer } from "./DevDrawer";
 import { Sidebar } from "./Sidebar";
 import { ActivityView } from "./views/ActivityView";
@@ -166,6 +167,7 @@ export function AppShell() {
         </section>
       </div>
 
+      <DefaultWorkspaceNotice onRoute={onRoute} />
       <DevDrawer dev={drawerDev} onClose={() => setDrawerDev(null)} />
     </>
   );
