@@ -32,7 +32,7 @@ def write_session(response: Response, payload: dict[str, Any]) -> None:
         max_age=s.session_max_age_seconds,
         httponly=True,
         secure=s.is_prod,
-        samesite="lax",
+        samesite="none",
         path="/",
     )
 
