@@ -1,6 +1,7 @@
 "use client";
 
 import { getAlerts } from "@/lib/api";
+import { useOrg } from "@/lib/api/OrgContext";
 import { useApi } from "@/lib/api/useApi";
 import { RowSkeleton } from "../Skeleton";
 
@@ -9,9 +10,10 @@ interface Props {
 }
 
 export function AlertsView({ visible }: Props) {
+  const { activeOrg } = useOrg();
   const { data: alerts, error, loading } = useApi(
     visible ? "alerts" : null,
-    () => getAlerts(200),
+    () => getAlerts(200, activeOrg ?? undefined),
     { ttlMs: 2 * 60_000 },
   );
 

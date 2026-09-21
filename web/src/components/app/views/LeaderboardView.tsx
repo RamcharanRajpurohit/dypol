@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { getLeaderboard } from "@/lib/api";
+import { useOrg } from "@/lib/api/OrgContext";
 import { useApi } from "@/lib/api/useApi";
 import { RowSkeleton } from "../Skeleton";
 
@@ -13,9 +14,10 @@ interface Props {
 
 export function LeaderboardView({ visible }: Props) {
   const [days, setDays] = useState<Period>(30);
+  const { activeOrg } = useOrg();
   const { data: entries, error, loading } = useApi(
     visible ? `leaderboard:${days}` : null,
-    () => getLeaderboard(days, 50),
+    () => getLeaderboard(days, 50, activeOrg ?? undefined),
     { ttlMs: 10 * 60_000 },
   );
 

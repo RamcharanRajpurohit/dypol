@@ -15,10 +15,10 @@ interface Props {
 }
 
 export function DashboardView({ onRoute, visible }: Props) {
-  const { me } = useOrg();
+  const { me, activeOrg } = useOrg();
   const { data, error, loading } = useApi(
     visible ? "dashboard" : null,
-    () => getDashboard(),
+    () => getDashboard(activeOrg ?? undefined),
     { ttlMs: 2 * 60_000 },
   );
 

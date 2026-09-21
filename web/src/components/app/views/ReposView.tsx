@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { getRepos } from "@/lib/api";
 import type { Status } from "@/lib/api";
+import { useOrg } from "@/lib/api/OrgContext";
 import { useApi } from "@/lib/api/useApi";
 import { RowSkeleton } from "../Skeleton";
 import { formatPrCount } from "@/lib/app/format";
@@ -15,9 +16,10 @@ interface Props {
 type Filter = "all" | Status;
 
 export function ReposView({ visible, onSelectRepo }: Props) {
+  const { activeOrg } = useOrg();
   const { data: repos, error, loading } = useApi(
     visible ? "repos" : null,
-    () => getRepos(),
+    () => getRepos(activeOrg ?? undefined),
     { ttlMs: 5 * 60_000 },
   );
   const [filter, setFilter] = useState<Filter>("all");

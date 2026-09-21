@@ -15,7 +15,7 @@ export function ActivityView({ visible }: Props) {
     me.installations.find((i) => i.account_login === activeOrg)?.mode === "public";
   const { data: events, error, loading } = useApi(
     visible ? "activity" : null,
-    () => getActivity(100),
+    () => getActivity(100, activeOrg ?? undefined),
     { ttlMs: 60_000 },
   );
 

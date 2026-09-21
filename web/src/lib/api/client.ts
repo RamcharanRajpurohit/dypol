@@ -6,7 +6,7 @@
  * - Reads `NEXT_PUBLIC_API_BASE_URL` from `.env.local`.
  */
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://dypol.onrender.com";
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://api.dypol.dev";
 
 // Module-level "active org" — set by <OrgProvider> on mount and on switch.
 // Endpoints that don't take an explicit `org` query param fall back to this.
@@ -30,7 +30,8 @@ export class ApiError extends Error {
 
 interface ApiOptions extends Omit<RequestInit, "body"> {
   body?: unknown;
-  query?: Record<string, string | number | boolean | undefined>;
+  /** `null` values mean "no value" — omitted from the query string. */
+  query?: Record<string, string | number | boolean | null | undefined>;
 }
 
 function buildUrl(path: string, query?: ApiOptions["query"]): string {

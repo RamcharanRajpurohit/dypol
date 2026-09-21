@@ -1,6 +1,7 @@
 "use client";
 
 import { getDigest } from "@/lib/api";
+import { useOrg } from "@/lib/api/OrgContext";
 import { useApi } from "@/lib/api/useApi";
 import { Skeleton } from "../Skeleton";
 import { formatPrCount } from "@/lib/app/format";
@@ -10,9 +11,10 @@ interface Props {
 }
 
 export function DigestView({ visible }: Props) {
+  const { activeOrg } = useOrg();
   const { data: digest, error, loading } = useApi(
     visible ? "digest:7" : null,
-    () => getDigest(7),
+    () => getDigest(7, activeOrg ?? undefined),
     { ttlMs: 30 * 60_000 }, // digest is heavy and rarely changes minute-to-minute
   );
 

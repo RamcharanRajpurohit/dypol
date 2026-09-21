@@ -9,9 +9,36 @@ import {
   useState,
 } from "react";
 import { setDefaultOrg } from "./client";
-import type { MeResponse } from "./types";
+import type { Installation, MeResponse } from "./types";
 
 const STORAGE_KEY = "dypol.activeOrg";
+
+/**
+ * Pick the default workspace.
+ *
+ * Preference order:
+ *  1. An explicitly stored choice (localStorage) — if still valid, and it
+ *     isn't a public/demo workspace masquerading as the default while a real
+ *     App install exists (new users used to get stuck on the auto-added
+ *     public workspace even after connecting their org).
+ *  2. The first real (install-mode) workspace.
+ *  3. The first workspace of any kind.
+ */
+function resolveDefaultOrg(
+  installs: Installation[],
+  stored: string | null,
+): string | null {
+  const preferred = installs.find((i) => i.mode !== "public") ?? installs[0] ?? null;
+  if (stored) {
+    const storedInst = installs.find((i) => i.account_login === stored);
+    if (storedInst) {
+      const storedIsDemo =
+        storedInst.mode === "public" && preferred && preferred.mode !== "public";
+      if (!storedIsDemo) return stored;
+    }
+  }
+  return preferred?.account_login ?? null;
+}
 
 export interface OrgContextValue {
   me: MeResponse;
@@ -34,23 +61,17 @@ export function OrgProvider({
   // Set the module-level default synchronously inside the initializer so
   // any API call fired during the first render already carries `?org=…`.
   const [activeOrg, setActiveOrgState] = useState<string | null>(() => {
-    let resolved: string | null = installs[0]?.account_login ?? null;
-    if (typeof window !== "undefined") {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (stored && installs.some((i) => i.account_login === stored)) {
-        resolved = stored;
-      }
-    }
+    const stored =
+      typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : null;
+    const resolved = resolveDefaultOrg(installs, stored);
     setDefaultOrg(resolved);
     return resolved;
   });
 
   // Keep active org in sync if installs list changes underneath us.
   useEffect(() => {
-    if (!activeOrg && installs[0]) {
-      setActiveOrgState(installs[0].account_login);
-    } else if (activeOrg && !installs.some((i) => i.account_login === activeOrg)) {
-      setActiveOrgState(installs[0]?.account_login ?? null);
+    if (!activeOrg || !installs.some((i) => i.account_login === activeOrg)) {
+      setActiveOrgState(resolveDefaultOrg(installs, null));
     }
   }, [installs, activeOrg]);
 
@@ -65,6 +86,11 @@ export function OrgProvider({
   }, [activeOrg]);
 
   const setActiveOrg = useCallback((login: string) => {
+    // Publish synchronously, in the event handler. Child effects fire before
+    // the provider's own effect on re-render, so any fetch they start must
+    // already see the new org — updating the module default only in an effect
+    // sent requests off with the PREVIOUS org (stale-data-after-switch bug).
+    setDefaultOrg(login);
     setActiveOrgState(login);
     if (typeof window !== "undefined") {
       window.localStorage.setItem(STORAGE_KEY, login);

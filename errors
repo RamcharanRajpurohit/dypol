@@ -1,0 +1,52 @@
+
+Here's the note-ready summary:
+
+---
+
+## Bug: Session cookie set in prod but never sent back → infinite login loop
+
+### Symptom
+```
+GET /auth/set-session?token=…   200  ← Set-Cookie issued
+GET /auth/me                    401  ← cookie never arrives
+GET /auth/login                 307  ← frontend redirects to GitHub again → loop
+```
+Cookie visible in DevTools under `dypol.onrender.com`, but never under `www.dypol.dev`, and `/auth/me` showed "cookie blocked (third-party)". Localhost worked fine with identical env vars.
+
+### Root cause
+**Frontend and API lived on different sites:** `www.dypol.dev` (Vercel) vs `dypol.onrender.com` (Render).
+
+The session cookie was set on the API's host with `SameSite=None; Secure` — technically correct — but because the two hosts have **no shared parent domain**, every API call from the app was a **third-party (cross-site) request**:
+
+- `www.dypol.dev` → page
+- `dypol.onrender.com` → cookie lives here
+- Browser rule: cookies on site B sent from a page on site A = third-party cookie
+
+Modern browsers drop or partition third-party cookies: **Safari (ITP) blocks them entirely, Firefox partitions them (dFPI), Chrome is phasing them out (3PCD)**. So `Set-Cookie` "succeeded" at the HTTP level, but the browser discarded/never re-sent the cookie on the next request → `current_user` found no cookie → 401 → `useMe` saw 401 → redirect to `/auth/login` → loop.
+
+**Why localhost worked:** `localhost:3000` → `localhost:8000` differ only by port, and ports are ignored in cookie/site scoping → same-site → first-party cookie → `SameSite=Lax` was enough. The bug only existed cross-site.
+
+Same mechanism also caused an occasional `400 bad_oauth_state`: the `_STATE_COOKIE` (`path=/auth`) was cross-site too, so it sometimes didn't survive the GitHub redirect round-trip.
+
+### Fix (first-party domain)
+Pointed `api.dypol.dev` (CNAME → Render) and moved the API there:
+
+| Change | Value |
+|---|---|
+| `NEXT_PUBLIC_API_BASE_URL` (Vercel, rebuild required) | `https://api.dypol.dev` |
+| `APP_BASE_URL` (Render) | `https://api.dypol.dev` |
+| GitHub App callback URL | `https://api.dypol.dev/auth/callback` |
+| Code: fallback in `web/src/lib/api/client.ts` | `https://api.dypol.dev` (was broken `http://dypol.onrender.com`) |
+| Code: default in `backend/app/core/config.py` | `https://api.dypol.dev` |
+
+`www.dypol.dev` and `api.dypol.dev` share the registrable domain **`dypol.dev`** → the browser now classifies every API call as **same-site/first-party** → cookie is set *and* returned, on all browsers. Cookie code (`SameSite=None; Secure` in prod) unchanged — no `Domain` attribute needed, since the cookie is set and read on the same exact host.
+
+### Takeaways
+- Cross-subdomain of a common parent (`api.` vs `www.`) = same site ✅ · App vendor domain (`*.onrender.com`) = always cross-site ❌
+- Never host the cookie-issuing API on a domain the frontend doesn't share
+- `NEXT_PUBLIC_*` vars are baked at build time — changing them requires a redeploy
+- Deploying separately on different vendors? Plan for a custom subdomain from day one
+
+---
+
+One follow-up worth doing: the GitHub **webhook URL** can stay on `dypol.onrender.com` (it still works), but moving it to `api.dypol.dev/webhooks/github` too keeps everything on one domain. Want me to note that down as a task as well?

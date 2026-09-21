@@ -165,6 +165,14 @@ class GitHubClient:
         resp = await self._request("GET", path, params=params)
         return resp.json()
 
+    async def status_code(self, path: str) -> int:
+        """Raw HTTP status for a GET — for endpoints that answer in status
+        codes rather than bodies (e.g. ``GET /orgs/{org}/members/{user}`` →
+        204 member / 404 not-a-member). 4xx responses are returned, not
+        raised, so callers can branch on the code itself."""
+        resp = await self._request("GET", path)
+        return resp.status_code
+
     async def paginate(
         self,
         path: str,

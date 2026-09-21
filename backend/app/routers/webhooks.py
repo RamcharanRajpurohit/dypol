@@ -85,6 +85,8 @@ async def _on_installation(payload: dict[str, Any]) -> None:
     doc = {
         "install_id": install_id,
         "account_login": (account.get("login") or "").lower(),
+        "account_login_display": account.get("login"),
+        "avatar_url": account.get("avatar_url"),
         "account_type": account.get("type"),
         "account_id": account.get("id"),
         "repository_selection": inst.get("repository_selection"),

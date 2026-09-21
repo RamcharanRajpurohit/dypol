@@ -169,7 +169,7 @@ class Settings(BaseSettings):
     rag_max_repos_per_tick: int = Field(5, alias="RAG_MAX_REPOS_PER_TICK")
 
     # URLs
-    app_base_url: str = Field("https://dypol.onrender.com", alias="APP_BASE_URL")
+    app_base_url: str = Field("https://api.dypol.dev", alias="APP_BASE_URL")
     web_base_url: str = Field("https://www.dypol.dev", alias="WEB_BASE_URL")
 
     # Session

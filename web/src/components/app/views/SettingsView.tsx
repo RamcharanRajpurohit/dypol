@@ -26,7 +26,7 @@ export function SettingsView({ visible }: Props) {
     if (!visible) return;
     let cancelled = false;
     setError(null);
-    Promise.all([getOrgInfo(), getMembers()])
+    Promise.all([getOrgInfo(activeOrg ?? undefined), getMembers(activeOrg ?? undefined)])
       .then(([o, m]) => {
         if (cancelled) return;
         setOrgInfo(o as OrgInfo);

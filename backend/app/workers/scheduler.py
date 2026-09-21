@@ -44,6 +44,8 @@ async def sync_installations() -> None:
                 "$set": {
                     "install_id": inst["id"],
                     "account_login": (account.get("login") or "").lower(),
+                    "account_login_display": account.get("login"),
+                    "avatar_url": account.get("avatar_url"),
                     "account_type": account.get("type"),
                     "account_id": account.get("id"),
                     "repository_selection": inst.get("repository_selection"),

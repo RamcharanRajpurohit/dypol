@@ -45,48 +45,53 @@ export const removePublicWorkspace = (login: string) =>
   api<unknown>(`/workspaces/public/${login}`, { method: "DELETE" });
 
 // ── Views ───────────────────────────────────────────────────────────
-export const getDashboard = (org?: string) =>
+// All `org` params accept `string | null | undefined`: views pass the
+// active org straight from context (which is `null` while hydrating), and
+// `null` means "no explicit org" — `buildUrl` then auto-attaches the module
+// default (kept in sync by <OrgProvider>), so requests are always scoped to
+// the workspace the user actually selected.
+export const getDashboard = (org?: string | null) =>
   api<DashboardSummary>("/dashboard/", { query: { org } });
 
-export const getRepos = (org?: string, includeArchived = false) =>
+export const getRepos = (org?: string | null, includeArchived = false) =>
   api<Repo[]>("/repos/", { query: { org, include_archived: includeArchived } });
 
-export const getRepo = (name: string, org?: string) =>
+export const getRepo = (name: string, org?: string | null) =>
   api<Repo>(`/repos/${name}`, { query: { org } });
 
 export const getRepoPrs = (
   name: string,
   state: "open" | "closed" | "all" = "all",
   limit = 50,
-  org?: string,
+  org?: string | null,
 ) => api<PR[]>(`/repos/${name}/prs`, { query: { state, limit, org } });
 
-export const getLeaderboard = (days = 30, limit = 25, org?: string) =>
+export const getLeaderboard = (days = 30, limit = 25, org?: string | null) =>
   api<LeaderboardEntry[]>("/leaderboard/", { query: { days, limit, org } });
 
-export const getActivity = (limit = 50, org?: string) =>
+export const getActivity = (limit = 50, org?: string | null) =>
   api<ActivityEvent[]>("/activity/", { query: { limit, org } });
 
-export const getAlerts = (limit = 100, org?: string) =>
+export const getAlerts = (limit = 100, org?: string | null) =>
   api<Alert[]>("/alerts/", { query: { limit, org } });
 
-export const getDigest = (days = 7, org?: string) =>
+export const getDigest = (days = 7, org?: string | null) =>
   api<DigestSummary>("/digest/", { query: { days, org } });
 
-export const ask = (q: string, repo?: string, limit = 20, org?: string) =>
+export const ask = (q: string, repo?: string, limit = 20, org?: string | null) =>
   api<AskAnswer>("/ask/", {
     method: "POST",
     body: { q, repo, limit },
     query: { org },
   });
 
-export const getOrgInfo = (org?: string) =>
+export const getOrgInfo = (org?: string | null) =>
   api<{ org: string; account_type: string; user_login: string }>(
     "/settings/org",
     { query: { org } },
   );
 
-export const getMembers = (org?: string) =>
+export const getMembers = (org?: string | null) =>
   api<Member[]>("/settings/members", { query: { org } });
 
 // ── Chat ────────────────────────────────────────────────────────
@@ -97,7 +102,7 @@ export const chatStatus = () =>
 // the sidebar loads sessions from a child effect that can run before the org
 // provider's effect has (re)published the default, and a request with no org
 // 400s with `org_required` whenever the user has more than one workspace.
-export const listChatSessions = (includeArchived = false, org?: string) =>
+export const listChatSessions = (includeArchived = false, org?: string | null) =>
   api<ChatSession[]>("/chat/sessions", {
     query: { include_archived: includeArchived, org },
   });
