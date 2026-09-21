@@ -112,6 +112,9 @@ class Settings(BaseSettings):
     # ──────────────────────────────────────────────────────────────
     # Per-(user, org) daily output-token ceiling. 0 disables the cap.
     daily_token_budget: int = Field(0, alias="DAILY_TOKEN_BUDGET")
+    # Per-user daily CHAT TURN quota (API calls). 0 disables the cap. The
+    # bucket is a UTC day computed on the SERVER; see app/services/quota.py.
+    daily_call_limit: int = Field(30, alias="DAILY_CALL_LIMIT")
     # Circuit breaker: after N consecutive provider failures, short-circuit for
     # ``circuit_cooldown_seconds`` instead of hammering a down provider.
     circuit_failure_threshold: int = Field(5, alias="CIRCUIT_FAILURE_THRESHOLD")

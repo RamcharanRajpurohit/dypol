@@ -22,7 +22,7 @@ from __future__ import annotations
 import time
 import uuid
 from collections.abc import AsyncIterator
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from app.agents.graph import run_agent
@@ -34,7 +34,9 @@ from app.models.schemas import (
     ChatSession,
     ChatToolCall,
     ChatTurnResponse,
+    QuotaInfo,
 )
+from app.services import quota
 
 # The live system prompt now lives in app/agents/prompts.py (built per
 # workspace). The old monolithic SYSTEM_INSTRUCTION constant was moved there
@@ -73,6 +75,7 @@ def _msg_doc_to_model(doc: dict[str, Any]) -> ChatMessage:
         tool_calls=[
             ChatToolCall(**tc) for tc in (doc.get("tool_calls") or [])
         ],
+        quota=(QuotaInfo(**doc["quota"]) if doc.get("quota") else None),
         created_at=doc["created_at"],
     )
 
@@ -82,7 +85,7 @@ def _msg_doc_to_model(doc: dict[str, Any]) -> ChatMessage:
 # ──────────────────────────────────────────────────────────────────
 async def create_session(user_id: int, org: str, title: str = "New chat") -> ChatSession:
     db = get_db()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     doc = {
         "_id": uuid.uuid4().hex,
         "user_id": user_id,
@@ -128,7 +131,7 @@ async def list_messages(session_id: str, limit: int = 200) -> list[ChatMessage]:
 
 async def update_session(user_id: int, session_id: str, **fields: Any) -> ChatSession | None:
     db = get_db()
-    fields["updated_at"] = datetime.now(timezone.utc)
+    fields["updated_at"] = datetime.now(UTC)
     res = await db["chat_sessions"].find_one_and_update(
         {"_id": session_id, "user_id": user_id},
         {"$set": fields},
@@ -164,16 +167,19 @@ async def _persist_message(
     role: str,
     content: str,
     tool_calls: list[ChatToolCall] | None = None,
+    quota: QuotaInfo | None = None,
 ) -> ChatMessage:
     db = get_db()
-    doc = {
+    doc: dict[str, Any] = {
         "_id": uuid.uuid4().hex,
         "session_id": session_id,
         "role": role,
         "content": content,
         "tool_calls": [tc.model_dump() for tc in (tool_calls or [])],
-        "created_at": datetime.now(timezone.utc),
+        "created_at": datetime.now(UTC),
     }
+    if quota is not None:
+        doc["quota"] = quota.model_dump()
     await db["chat_messages"].insert_one(doc)
     return _msg_doc_to_model(doc)
 
@@ -224,7 +230,7 @@ async def _finalize_turn(
         {
             "$set": {
                 "title": new_title,
-                "updated_at": datetime.now(timezone.utc),
+                "updated_at": datetime.now(UTC),
                 "last_message_preview": _slug_title(final_text, 140),
                 "message_count": total,
             }
@@ -329,6 +335,12 @@ async def send_message(
             already_persisted_assistant=assistant_msg,
         )
 
+    # Daily call quota — enforced server-side (server clock + atomic Mongo
+    # counter), so a tampered client clock or replayed request can't buy
+    # extra calls. The turn is billed BEFORE the work runs.
+    if not await quota.consume(user_id):
+        return await _quota_exhausted_turn(user_id, session, session_id, content)
+
     user_msg = await _persist_message(session_id, "user", content)
 
     # Prior history EXCLUDING the just-persisted user message (run_agent appends
@@ -337,10 +349,15 @@ async def send_message(
 
     bound_install, memory_block = await _turn_context(user_id, install)
     t0 = time.monotonic()
-    final_text, trace_dicts = await run_agent(
-        bound_install, prior, content, extra_context=memory_block,
-        obs={"user_id": user_id, "org": org, "session_id": session_id},
-    )
+    try:
+        final_text, trace_dicts = await run_agent(
+            bound_install, prior, content, extra_context=memory_block,
+            obs={"user_id": user_id, "org": org, "session_id": session_id},
+        )
+    except Exception:
+        # The turn did no work — give the call back so retries aren't double-billed.
+        await quota.refund(user_id)
+        raise
     duration_ms = int((time.monotonic() - t0) * 1000)
     tool_trace = [ChatToolCall(**tc) for tc in trace_dicts]
 
@@ -348,8 +365,45 @@ async def send_message(
         user_id, org, session_id, content, final_text, tool_trace, duration_ms
     )
 
-    return await _finalize_turn(
+    turn = await _finalize_turn(
         user_id, session, session_id, content, final_text, tool_trace, user_msg
+    )
+    turn.quota = await _quota_snapshot(user_id)
+    return turn
+
+
+async def _quota_snapshot(user_id: int) -> QuotaInfo | None:
+    """Post-turn quota state for the UI, or None when the quota is disabled."""
+    if quota.day_limit() <= 0:
+        return None
+    used, limit, resets_at = await quota.status(user_id)
+    return QuotaInfo(used=used, limit=limit, resets_at=resets_at)
+
+
+async def _quota_exhausted_turn(
+    user_id: int,
+    session: ChatSession,
+    session_id: str,
+    content: str,
+) -> ChatTurnResponse:
+    """Persist a turn that was refused because the daily call quota is spent.
+
+    The user's message is stored (they typed it), the assistant's reply is a
+    short notice carrying the structured ``quota`` block so the UI can render
+    the counter instead of parsing text. No LLM call is made."""
+    used, limit, resets_at = await quota.status(user_id)
+    info = QuotaInfo(used=used, limit=limit, resets_at=resets_at)
+    user_msg = await _persist_message(session_id, "user", content)
+    msg = (
+        f"You've used all {limit} messages for today "
+        f"({used}/{limit}). Your quota resets at midnight UTC."
+    )
+    assistant_msg = await _persist_message(
+        session_id, "assistant", msg, [], quota=info
+    )
+    return await _finalize_turn(
+        user_id, session, session_id, content, msg, [], user_msg,
+        already_persisted_assistant=assistant_msg,
     )
 
 
@@ -403,6 +457,12 @@ async def stream_message(
         yield _frame("done", turn.model_dump(mode="json"))
         return
 
+    # Daily call quota — same server-side enforcement as the non-streaming path.
+    if not await quota.consume(user_id):
+        turn = await _quota_exhausted_turn(user_id, session, session_id, content)
+        yield _frame("done", turn.model_dump(mode="json"))
+        return
+
     user_msg = await _persist_message(session_id, "user", content)
     prior = (await list_messages(session_id))[:-1]
     _t0 = time.monotonic()
@@ -444,6 +504,7 @@ async def stream_message(
             yield _frame(kind, payload)
         final_text, trace_dicts = await task
     except Exception as exc:  # pragma: no cover - defensive
+        await quota.refund(user_id)
         yield _frame("error", {"message": str(exc)})
         return
 
@@ -455,5 +516,6 @@ async def stream_message(
     turn = await _finalize_turn(
         user_id, session, session_id, content, final_text, tool_trace, user_msg
     )
+    turn.quota = await _quota_snapshot(user_id)
     yield _frame("done", turn.model_dump(mode="json"))
 

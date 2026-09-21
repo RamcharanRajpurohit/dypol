@@ -31,6 +31,7 @@ import remarkGfm from "remark-gfm";
 import {
   ApiError,
   createChatSession,
+  getChatQuota,
   listChatMessages,
   sendChatMessage,
   sendChatMessageStream,
@@ -40,6 +41,7 @@ import type {
   ChatSession,
   ChatStreamToolEvent,
   ChatToolCall,
+  QuotaInfo,
 } from "@/lib/api";
 import { useOrg } from "@/lib/api/OrgContext";
 import { ArrowSendIcon } from "../icons";
@@ -90,6 +92,8 @@ export function ChatView({
   const [streamText, setStreamText] = useState("");
   const [liveTools, setLiveTools] = useState<LiveTool[]>([]);
   const [streaming, setStreaming] = useState(false);
+  // Daily call quota — server-computed; hidden entirely when disabled (limit <= 0).
+  const [quota, setQuota] = useState<QuotaInfo | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -112,6 +116,22 @@ export function ChatView({
       cancelled = true;
     };
   }, [sessionId]);
+
+  // Load the quota once per org; refreshed after each turn by the commit path.
+  useEffect(() => {
+    let cancelled = false;
+    getChatQuota()
+      .then((q) => {
+        if (!cancelled) setQuota(q.limit > 0 ? q : null);
+      })
+      .catch(() => {
+        // Quota display is cosmetic — never block chat on it.
+        if (!cancelled) setQuota(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeOrg]);
 
   // Notify parent of active question (for sidebar highlight legacy)
   useEffect(() => {
@@ -181,6 +201,7 @@ export function ChatView({
         role: "user",
         content: v,
         tool_calls: [],
+        quota: null,
         created_at: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, optimistic]);
@@ -189,6 +210,7 @@ export function ChatView({
         userMessage: ChatMessage,
         assistantMessage: ChatMessage,
         session: ChatSession,
+        nextQuota?: QuotaInfo | null,
       ) => {
         setMessages((prev) => [
           ...prev.filter((m) => m.id !== tempId),
@@ -196,6 +218,7 @@ export function ChatView({
           assistantMessage,
         ]);
         onSessionUpdated(session);
+        if (nextQuota !== undefined) setQuota(nextQuota && nextQuota.limit > 0 ? nextQuota : null);
       };
 
       try {
@@ -213,7 +236,7 @@ export function ChatView({
             },
           });
           if (resp) {
-            commitTurn(resp.user_message, resp.assistant_message, resp.session);
+            commitTurn(resp.user_message, resp.assistant_message, resp.session, resp.quota);
             return;
           }
           // Stream closed without a terminal `done` frame → treat as a miss
@@ -241,7 +264,7 @@ export function ChatView({
 
         // ── Fallback: non-streaming endpoint ──
         const resp = await sendChatMessage(sid, v);
-        commitTurn(resp.user_message, resp.assistant_message, resp.session);
+        commitTurn(resp.user_message, resp.assistant_message, resp.session, resp.quota);
       } catch (err) {
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
         if (err instanceof ApiError) setError(`${err.status}: ${err.message}`);
@@ -348,6 +371,18 @@ export function ChatView({
           />
           <div className="composer-actions">
             <span className="chip">@ scope: {activeOrg ?? "—"}</span>
+            {quota && (
+              <span
+                className="caption hidden md:inline"
+                title={`Resets at ${new Date(quota.resets_at).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })} (UTC midnight)`}
+                style={{ color: "var(--ink3)" }}
+              >
+                {quota.limit - quota.used} / {quota.limit} left today
+              </span>
+            )}
             <div className="flex items-center gap-2">
               {streaming && (
                 <span className="caption" style={{ color: "var(--ink3)" }}>

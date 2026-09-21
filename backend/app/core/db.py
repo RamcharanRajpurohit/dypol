@@ -109,6 +109,10 @@ async def init_indexes() -> None:
     await db["usage_daily"].create_index(
         [("user_id", 1), ("org", 1), ("day", 1)], unique=True
     )
+    # Per-user daily chat-call quota (app/services/quota.py)
+    await db["usage_calls"].create_index(
+        [("user_id", 1), ("day", 1)], unique=True
+    )
     await db["audit_log"].create_index([("org", 1), ("timestamp", -1)])
     await db["audit_log"].create_index("timestamp")
 

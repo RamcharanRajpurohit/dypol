@@ -21,9 +21,10 @@ import type {
   DashboardSummary,
   DigestSummary,
   LeaderboardEntry,
-  Member,
   MeResponse,
+  Member,
   PR,
+  QuotaInfo,
   Repo,
 } from "./types";
 
@@ -97,6 +98,10 @@ export const getMembers = (org?: string | null) =>
 // ── Chat ────────────────────────────────────────────────────────
 export const chatStatus = () =>
   api<{ agent_enabled: boolean }>("/chat/status");
+
+/** Today's chat-call quota for the signed-in user (server-computed). */
+export const getChatQuota = () => api<QuotaInfo>("/chat/quota");
+export type { QuotaInfo };
 
 // `org` is passed explicitly rather than relying on the module-level default:
 // the sidebar loads sessions from a child effect that can run before the org

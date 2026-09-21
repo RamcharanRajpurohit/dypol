@@ -135,7 +135,18 @@ export interface ChatMessage {
   role: "user" | "assistant" | "system";
   content: string;
   tool_calls: ChatToolCall[];
+  /** Set only on the assistant's quota-exhausted notice message. */
+  quota: QuotaInfo | null;
   created_at: string;
+}
+
+/** Daily chat-call quota. All values are computed server-side; read-only. */
+export interface QuotaInfo {
+  used: number;
+  /** <= 0 means unlimited (quota disabled). */
+  limit: number;
+  /** Next UTC-midnight rollover (backend clock). */
+  resets_at: string;
 }
 
 export interface ChatSession {
@@ -155,6 +166,8 @@ export interface ChatTurnResponse {
   session: ChatSession;
   user_message: ChatMessage;
   assistant_message: ChatMessage;
+  /** Remaining daily calls after this turn (null when quota is disabled). */
+  quota: QuotaInfo | null;
 }
 
 // ── Chat streaming (SSE) ─────────────────────────────────────────

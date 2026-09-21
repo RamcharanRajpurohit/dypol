@@ -15,8 +15,10 @@ from app.models.schemas import (
     ChatSendRequest,
     ChatSession,
     ChatTurnResponse,
+    QuotaInfo,
 )
 from app.services import chat as chat_service
+from app.services import quota as quota_service
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -27,6 +29,14 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 @router.get("/status")
 async def chat_status() -> dict:
     return {"agent_enabled": chat_service.is_agent_enabled()}
+
+
+@router.get("/quota", response_model=QuotaInfo)
+async def chat_quota(user: dict = Depends(current_user)) -> QuotaInfo:
+    """Today's call quota for the signed-in user. All values are computed
+    from the backend clock and Mongo counter — read-only for clients."""
+    used, limit, resets_at = await quota_service.status(user["github_id"])
+    return QuotaInfo(used=used, limit=limit, resets_at=resets_at)
 
 
 # ──────────────────────────────────────────────────────────────────

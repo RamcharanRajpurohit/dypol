@@ -148,6 +148,17 @@ class HealthResponse(BaseModel):
 # ──────────────────────────────────────────────────────────────────
 # Chat — agentic, multi-turn, tool-using
 # ──────────────────────────────────────────────────────────────────
+class QuotaInfo(BaseModel):
+    """Compact daily-call quota snapshot for the chat UI.
+
+    All numbers are computed server-side from the backend clock and the
+    Mongo counter — the client renders them read-only and never sends any
+    of these values back."""
+    used: int
+    limit: int           # <= 0 means unlimited (quota disabled)
+    resets_at: datetime  # next UTC-midnight rollover, backend clock
+
+
 class ChatToolCall(BaseModel):
     """One tool invocation made by the model during a turn."""
     name: str
@@ -162,6 +173,8 @@ class ChatMessage(BaseModel):
     role: Literal["user", "assistant", "system"]
     content: str
     tool_calls: list[ChatToolCall] = Field(default_factory=list)
+    # Set only on the assistant's quota-exhausted notice message.
+    quota: QuotaInfo | None = None
     created_at: datetime
 
 
@@ -192,6 +205,8 @@ class ChatTurnResponse(BaseModel):
     session: ChatSession
     user_message: ChatMessage
     assistant_message: ChatMessage
+    # Remaining daily calls after this turn (None when quota is disabled).
+    quota: QuotaInfo | None = None
 
 
 class Kpi(BaseModel):
