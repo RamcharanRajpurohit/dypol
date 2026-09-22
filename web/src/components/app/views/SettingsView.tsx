@@ -127,31 +127,14 @@ export function SettingsView({ visible }: Props) {
                   key={inst.install_id}
                   type="button"
                   onClick={() => setActiveOrg(inst.account_login)}
-                  className="row w-full text-left"
-                  style={{
-                    gridTemplateColumns: "14px 1fr auto",
-                    gap: 14,
-                    padding: "13px 18px",
-                    cursor: "pointer",
-                    background: isActive ? "var(--hairline)" : "transparent",
-                  }}
+                  className={`row w-full text-left grid grid-cols-1 sm:grid-cols-[14px_1fr_auto] gap-2 px-4 py-3 sm:gap-3.5 ${isActive ? "bg-[var(--hairline)]" : ""}`}
                 >
-                  <span
-                    className="dot"
-                    style={{ background: isActive ? "var(--accent)" : "var(--ink3)" }}
-                  />
+                  <span className={`dot ${isActive ? "bg-[var(--accent)]" : "bg-[var(--ink3)]"}`} />
                   <div className="min-w-0">
-                    <div className="truncate text-[13.5px]" style={{ color: "var(--ink)" }}>
-                      {inst.account_login}
-                    </div>
-                    <div className="mono mt-1 text-[11px]" style={{ color: "var(--ink3)" }}>
-                      {workspaceMeta(inst)}
-                    </div>
+                    <div className="truncate text-[13.5px] text-[var(--ink)]">{inst.account_login}</div>
+                    <div className="mono mt-1 text-[11px] text-[var(--ink3)]">{workspaceMeta(inst)}</div>
                   </div>
-                  <span
-                    className="text-[12px]"
-                    style={{ color: isActive ? "var(--accent)" : "var(--ink2)" }}
-                  >
+                  <span className={`text-[12px] ${isActive ? "text-[var(--accent)]" : "text-[var(--ink2)]"}`}>
                     {isActive ? "Active" : "Switch"}
                   </span>
                 </button>

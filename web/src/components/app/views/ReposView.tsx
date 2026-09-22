@@ -99,34 +99,21 @@ export function ReposView({ visible, onSelectRepo }: Props) {
             key={r.full_name}
             type="button"
             onClick={() => onSelectRepo(r.name)}
-            className="row w-full text-left"
-            style={{
-              gridTemplateColumns: "14px 1fr 1.4fr 90px auto",
-              gap: 18,
-              padding: "14px 18px",
-              cursor: "pointer",
-            }}
+            className="row w-full text-left grid grid-cols-1 sm:grid-cols-[14px_1fr_1.4fr_90px_auto] gap-2 px-4 py-3 sm:gap-4.5"
           >
             <span className={`dot ${r.status}`} />
             <div>
-              <div
-                className="mono text-[14.5px]"
-                style={{ color: "var(--ink)", fontWeight: 500 }}
-              >
+              <div className="mono text-[14.5px] text-[var(--ink)] font-medium">
                 {r.name}
               </div>
-              <div className="text-[11.5px]" style={{ color: "var(--ink3)", marginTop: 2 }}>
+              <div className="text-[11.5px] text-[var(--ink3)] mt-0.5">
                 {r.private ? "Private" : "Public"} · {formatPrCount(r)} open PRs
                 {r.archived ? " · archived" : ""}
               </div>
             </div>
-            <div className="text-[13px]" style={{ color: "var(--ink2)" }}>
-              {r.summary || "—"}
-            </div>
-            <div style={{ height: 24 }} />
-            <span className="text-[12px]" style={{ color: "var(--ink2)" }}>
-              View →
-            </span>
+            <div className="text-[13px] text-[var(--ink2)]">{r.summary || "—"}</div>
+            <div className="h-6" />
+            <span className="text-[12px] text-[var(--ink2)]">View →</span>
           </button>
         ))}
       </div>

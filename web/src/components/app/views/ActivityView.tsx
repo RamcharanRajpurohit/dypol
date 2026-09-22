@@ -53,8 +53,7 @@ export function ActivityView({ visible }: Props) {
         {events?.map((e) => (
           <div
             key={e.id}
-            className="row"
-            style={{ gridTemplateColumns: "28px 1fr auto", gap: 12, padding: "12px 18px" }}
+            className="row grid grid-cols-1 sm:grid-cols-[28px_1fr_auto] gap-2 px-4 py-3 sm:gap-3"
           >
             {e.actor_avatar ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -63,19 +62,19 @@ export function ActivityView({ visible }: Props) {
                 alt={e.actor}
                 width={24}
                 height={24}
-                style={{ borderRadius: "50%" }}
+                className="rounded-full"
               />
             ) : (
-              <div style={{ width: 24, height: 24 }} />
+              <div className="w-6 h-6" />
             )}
             <span className="text-[13.5px]">
-              <strong style={{ fontWeight: 500 }}>{e.actor}</strong>{" "}
-              <span style={{ color: "var(--ink2)" }}>{e.summary}</span>{" "}
-              <span className="mono text-[12px]" style={{ color: "var(--ink3)" }}>
+              <strong className="font-medium">{e.actor}</strong>{" "}
+              <span className="text-[var(--ink2)]">{e.summary}</span>{" "}
+              <span className="mono text-[12px] text-[var(--ink3)]">
                 · {e.repo}
               </span>
             </span>
-            <span className="mono text-[11px]" style={{ color: "var(--ink3)" }}>
+            <span className="mono text-[11px] text-[var(--ink3)]">
               {formatRelative(new Date(e.created_at))}
             </span>
           </div>

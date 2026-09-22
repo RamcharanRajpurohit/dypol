@@ -104,19 +104,16 @@ export function AskView({ visible, ref, onActiveQuestionChange }: Props) {
     answer?.sources.reduce((a, g) => a + g.items.length, 0) ?? 0;
 
   return (
-    <div className="ask-grid" style={{ height: "100%" }}>
-      <div
-        className="relative"
-        style={{ display: "flex", flexDirection: "column", minHeight: 0 }}
-      >
-        <div ref={scrollRef} className="scroll" style={{ flex: 1 }}>
+    <div className="ask-grid h-full">
+      <div className="relative flex flex-col min-h-0">
+        <div ref={scrollRef} className="scroll flex-1">
           <div className="ask-thread">
             <div className="mb-8">
               <div className="label-tight mb-2">Conversation</div>
               <h1 className="h-page">
-                <span className="italic-serif" style={{ color: "var(--ink2)" }}>"</span>
+                <span className="italic-serif text-[var(--ink2)]">"</span>
                 {headerQ}
-                <span className="italic-serif" style={{ color: "var(--ink2)" }}>"</span>
+                <span className="italic-serif text-[var(--ink2)]">"</span>
               </h1>
             </div>
 
@@ -127,7 +124,7 @@ export function AskView({ visible, ref, onActiveQuestionChange }: Props) {
             )}
 
             {error && (
-              <div style={{ color: "var(--hot)" }} className="text-[13px]">
+              <div className="text-[var(--hot)] text-[13px]">
                 Error: {error}
               </div>
             )}
@@ -212,16 +209,13 @@ export function AskView({ visible, ref, onActiveQuestionChange }: Props) {
       <div className="ask-rail">
         <div className="hairline flex items-center justify-between border-b px-4 pt-4 pb-3">
           <span className="label-tight">Sources</span>
-          <span className="mono text-[10.5px]" style={{ color: "var(--ink3)" }}>
+          <span className="mono text-[10.5px] text-[var(--ink3)]">
             {answer ? `${totalSources} items` : "— items"}
           </span>
         </div>
         <div className="scroll flex-1 overflow-y-auto">
           {!answer && (
-            <div
-              className="px-4 py-6 text-[12.5px]"
-              style={{ color: "var(--ink3)" }}
-            >
+            <div className="px-4 py-6 text-[12.5px] text-[var(--ink3)]">
               Sources will appear here as the agent works.
             </div>
           )}
@@ -229,10 +223,7 @@ export function AskView({ visible, ref, onActiveQuestionChange }: Props) {
             <div key={g.kind}>
               <div className="px-4 pt-4 pb-2 label-tight">{g.kind}</div>
               {g.items.length === 0 && (
-                <div
-                  className="px-4 pb-3 text-[12px]"
-                  style={{ color: "var(--ink3)" }}
-                >
+                <div className="px-4 pb-3 text-[12px] text-[var(--ink3)]">
                   None.
                 </div>
               )}
@@ -242,19 +233,12 @@ export function AskView({ visible, ref, onActiveQuestionChange }: Props) {
                   href={it.url ?? "#"}
                   target={it.url ? "_blank" : undefined}
                   rel="noopener noreferrer"
-                  className="rail-item block"
-                  style={{ textDecoration: "none" }}
+                  className="rail-item block no-underline"
                 >
-                  <div
-                    className="text-[13px] mono"
-                    style={{ color: "var(--ink)", letterSpacing: "-0.005em" }}
-                  >
+                  <div className="text-[13px] mono text-[var(--ink)] tracking-tight">
                     {it.t}
                   </div>
-                  <div
-                    className="text-[11.5px] mt-0.5"
-                    style={{ color: "var(--ink3)" }}
-                  >
+                  <div className="text-[11.5px] mt-0.5 text-[var(--ink3)]">
                     {it.d}
                   </div>
                 </a>

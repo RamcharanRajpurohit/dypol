@@ -130,15 +130,15 @@ export function RepoDetailView({ visible, repoName, onRoute }: Props) {
                 {prs ? `${prs.length} loaded` : "loading"}
               </span>
             </div>
-            <div className="card overflow-hidden">
-              <table className="data">
+            <div className="card overflow-x-auto sm:overflow-hidden">
+              <table className="data w-full sm:w-auto">
                 <thead>
                   <tr>
-                    <th style={{ width: 90 }}>PR</th>
+                    <th className="w-[90px]">PR</th>
                     <th>Title</th>
-                    <th style={{ width: 160 }}>Author</th>
-                    <th className="right" style={{ width: 100 }}>Updated</th>
-                    <th style={{ width: 110 }}>State</th>
+                    <th className="w-[160px]">Author</th>
+                    <th className="right w-[100px]">Updated</th>
+                    <th className="w-[110px]">State</th>
                   </tr>
                 </thead>
                 <tbody>

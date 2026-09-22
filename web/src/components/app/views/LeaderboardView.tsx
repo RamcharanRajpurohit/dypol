@@ -57,16 +57,16 @@ export function LeaderboardView({ visible }: Props) {
         </span>
       </div>
 
-      <div className="card overflow-hidden">
-        <table className="data">
+      <div className="card overflow-x-auto sm:overflow-hidden">
+        <table className="data w-full sm:w-auto">
           <thead>
             <tr>
-              <th style={{ width: 56 }}>#</th>
+              <th className="w-[56px]">#</th>
               <th>Developer</th>
-              <th className="right" style={{ width: 100 }}>Score</th>
-              <th className="right" style={{ width: 80 }}>Commits</th>
-              <th className="right" style={{ width: 100 }}>PRs merged</th>
-              <th className="right" style={{ width: 80 }}>Reviews</th>
+              <th className="right w-[100px]">Score</th>
+              <th className="right w-[80px]">Commits</th>
+              <th className="right w-[100px]">PRs merged</th>
+              <th className="right w-[80px]">Reviews</th>
             </tr>
           </thead>
           <tbody>
@@ -87,9 +87,7 @@ export function LeaderboardView({ visible }: Props) {
             )}
             {entries?.map((e) => (
               <tr key={e.login}>
-                <td className="num" style={{ color: "var(--ink3)" }}>
-                  {String(e.rank).padStart(2, "0")}
-                </td>
+                <td className="num text-[var(--ink3)]">{String(e.rank).padStart(2, "0")}</td>
                 <td>
                   <div className="flex items-center gap-2.5">
                     {e.avatar_url ? (
@@ -99,36 +97,22 @@ export function LeaderboardView({ visible }: Props) {
                         alt={e.login}
                         width={28}
                         height={28}
-                        style={{ borderRadius: "50%" }}
+                        className="rounded-full"
                       />
                     ) : (
-                      <div
-                        style={{
-                          width: 28,
-                          height: 28,
-                          borderRadius: "50%",
-                          background: "var(--ink3)",
-                        }}
-                      />
+                      <div className="w-7 h-7 rounded-full bg-[var(--ink3)]" />
                     )}
                     <div>
-                      <div className="text-[13.5px]" style={{ color: "var(--ink)" }}>
-                        {e.name ?? e.login}
-                      </div>
-                      <div
-                        className="mono text-[10.5px]"
-                        style={{ color: "var(--ink3)", letterSpacing: ".04em" }}
-                      >
+                      <div className="text-[13.5px] text-[var(--ink)]">{e.name ?? e.login}</div>
+                      <div className="mono text-[10.5px] text-[var(--ink3)] tracking-wider">
                         @{e.login}
                       </div>
                     </div>
                   </div>
                 </td>
                 <td className="right">
-                  <div className="num text-[18px]" style={{ color: "var(--ink)" }}>
-                    {e.score}
-                  </div>
-                  <div className="mini-track" style={{ marginLeft: "auto", marginTop: 4 }}>
+                  <div className="num text-[18px] text-[var(--ink)]">{e.score}</div>
+                  <div className="mini-track ml-auto mt-1">
                     <span
                       style={{
                         width: `${Math.min(100, (e.score / Math.max(...entries.map((x) => x.score), 1)) * 100)}%`,

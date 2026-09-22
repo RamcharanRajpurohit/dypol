@@ -48,30 +48,22 @@ export function AlertsView({ visible }: Props) {
           {alerts.map((alert, i) => (
             <div
               key={`${alert.repo}-${alert.kind}-${alert.ref}-${i}`}
-              className="row"
-              style={{
-                gridTemplateColumns: "14px 1fr auto auto",
-                gap: 14,
-                padding: "13px 18px",
-              }}
+              className="row grid grid-cols-1 sm:grid-cols-[14px_1fr_auto_auto] gap-2 px-4 py-3 sm:gap-3.5"
             >
               <span className={`dot ${severityToStatus(alert.severity)}`} />
               <span>
-                <span className="mono text-[12px]" style={{ color: "var(--ink3)" }}>
+                <span className="mono text-[12px] text-[var(--ink3)]">
                   [{kindLabel(alert.kind)}]
                 </span>{" "}
                 <span className="mono text-[12.5px]">{alert.repo}</span>{" "}
-                <span style={{ color: "var(--ink2)" }}>{alert.title}</span>
+                <span className="text-[var(--ink2)]">{alert.title}</span>
               </span>
-              <span className="mono text-[11px]" style={{ color: "var(--ink3)" }}>
-                {alert.ref}
-              </span>
+              <span className="mono text-[11px] text-[var(--ink3)]">{alert.ref}</span>
               <a
                 href={alert.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[12px]"
-                style={{ color: "var(--ink2)" }}
+                className="text-[12px] text-[var(--ink2)]"
               >
                 View →
               </a>

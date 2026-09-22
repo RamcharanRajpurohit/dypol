@@ -61,14 +61,14 @@ export function DashboardView({ onRoute, visible }: Props) {
       </header>
 
       {/* ── KPI strip ──────────────────────────────────────── */}
-      <section className="mb-16 grid grid-cols-2 gap-x-12 gap-y-10 md:grid-cols-4">
+      <section className="mb-16 grid grid-cols-2 gap-x-6 gap-y-6 sm:gap-x-12 sm:gap-y-10 md:grid-cols-4">
         {data.kpis.map((kpi) => (
           <KpiCard key={kpi.label} kpi={kpi} />
         ))}
       </section>
 
       {/* ── Two-column: alerts + contributors ─────────────── */}
-      <section className="mb-16 grid grid-cols-1 gap-12 lg:grid-cols-5">
+      <section className="mb-16 grid grid-cols-1 gap-8 sm:gap-12 lg:grid-cols-5">
         <div className="lg:col-span-3">
           <SectionHeader
             title="Needs attention"
@@ -201,30 +201,22 @@ function AlertsList({ alerts }: { alerts: Alert[] }) {
       {alerts.map((a, i) => (
         <div
           key={`${a.repo}-${a.kind}-${a.ref}-${i}`}
-          className="row"
-          style={{
-            gridTemplateColumns: "14px 1fr auto auto",
-            gap: 14,
-            padding: "13px 18px",
-          }}
+          className="row grid grid-cols-1 sm:grid-cols-[14px_1fr_auto_auto] gap-2 px-4 py-3 sm:gap-3.5"
         >
           <span className={`dot ${severityToStatus(a.severity)}`} />
           <span className="text-[13.5px]">
-            <span className="mono text-[12.5px]" style={{ color: "var(--ink3)" }}>
+            <span className="mono text-[12.5px] text-[var(--ink3)]">
               [{a.kind.replace(/_/g, " ")}]
             </span>{" "}
             <span className="mono text-[12.5px]">{a.repo}</span>{" "}
-            <span style={{ color: "var(--ink2)" }}>{a.title}</span>
+            <span className="text-[var(--ink2)]">{a.title}</span>
           </span>
-          <span className="mono text-[11px]" style={{ color: "var(--ink3)" }}>
-            {a.ref}
-          </span>
+          <span className="mono text-[11px] text-[var(--ink3)]">{a.ref}</span>
           <a
             href={a.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[12px]"
-            style={{ color: "var(--ink2)" }}
+            className="text-[12px] text-[var(--ink2)]"
           >
             View →
           </a>
@@ -252,14 +244,9 @@ function ContributorList({
       {contributors.map((c, i) => (
         <div
           key={c.login}
-          className="row"
-          style={{
-            gridTemplateColumns: "22px 28px 1fr auto",
-            gap: 12,
-            padding: "11px 0",
-          }}
+          className="row grid grid-cols-1 sm:grid-cols-[22px_28px_1fr_auto] gap-2 py-2.5 sm:gap-3"
         >
-          <span className="num text-[12px]" style={{ color: "var(--ink3)" }}>
+          <span className="num text-[12px] text-[var(--ink3)]">
             {String(i + 1).padStart(2, "0")}
           </span>
           {c.avatar_url ? (
@@ -269,16 +256,14 @@ function ContributorList({
               alt={c.login}
               width={24}
               height={24}
-              style={{ borderRadius: "50%" }}
+              className="rounded-full"
             />
           ) : (
-            <div style={{ width: 24, height: 24 }} />
+            <div className="w-6 h-6" />
           )}
           <div>
-            <div className="text-[13px]" style={{ color: "var(--ink)" }}>
-              {c.name ?? c.login}
-            </div>
-            <div className="mini-track" style={{ marginTop: 4 }}>
+            <div className="text-[13px] text-[var(--ink)]">{c.name ?? c.login}</div>
+            <div className="mini-track mt-1">
               <span
                 style={{
                   width: `${Math.min(100, (c.commits / max) * 100)}%`,
@@ -286,15 +271,9 @@ function ContributorList({
               />
             </div>
           </div>
-          <span
-            className="num text-[13px]"
-            style={{ color: "var(--ink)", minWidth: 36, textAlign: "right" }}
-          >
+          <span className="num text-[13px] text-[var(--ink)] min-w-[36px] text-right">
             {c.commits}
-            <span
-              className="text-[10.5px]"
-              style={{ color: "var(--ink3)", marginLeft: 4 }}
-            >
+            <span className="text-[10.5px] text-[var(--ink3)] ml-1">
               commits
             </span>
           </span>
@@ -329,34 +308,15 @@ function RepoGrid({
         >
           <div className="flex items-center gap-2 w-full">
             <span className={`dot ${r.status}`} />
-            <span
-              className="mono text-[12.5px]"
-              style={{
-                color: "var(--ink)",
-                fontWeight: 500,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
+            <span className="mono text-[12.5px] text-[var(--ink)] font-medium truncate">
               {r.name}
             </span>
           </div>
-          <div className="mono text-[10.5px]" style={{ color: "var(--ink3)" }}>
+          <div className="mono text-[10.5px] text-[var(--ink3)]">
             {formatPrCount(r)} open PRs · {r.private ? "private" : "public"}
           </div>
           {r.summary && (
-            <div
-              className="text-[11.5px]"
-              style={{
-                color: "var(--ink3)",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                display: "-webkit-box",
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: "vertical",
-              }}
-            >
+            <div className="text-[11.5px] text-[var(--ink3)] line-clamp-2">
               {r.summary}
             </div>
           )}
