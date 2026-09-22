@@ -30,6 +30,8 @@ interface SidebarProps {
   onDeleteSession: (id: string) => void;
   isDark: boolean;
   onToggleTheme: () => void;
+  /** Whether the off-canvas mobile drawer is open (below lg). */
+  drawerOpen?: boolean;
 }
 
 interface NavLink {
@@ -67,6 +69,7 @@ export function Sidebar({
   onDeleteSession,
   isDark,
   onToggleTheme,
+  drawerOpen = false,
 }: SidebarProps) {
   const { me, activeOrg, setActiveOrg } = useOrg();
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
@@ -113,24 +116,26 @@ export function Sidebar({
   );
 
   return (
-    <aside className="sidebar">
-      <div
-        ref={workspaceMenuRef}
-        className="hairline relative border-b px-3 pt-3 pb-3"
-      >
+    <aside
+      className={cn(
+        "sidebar",
+        // ≥lg: static grid column. <lg: off-canvas drawer, slid in when open.
+        "max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:z-[70] max-lg:w-[min(300px,86vw)]",
+        "max-lg:shadow-[24px_0_48px_-32px_rgb(20_17_13/0.35)]",
+        "max-lg:-translate-x-full max-lg:transition-transform max-lg:duration-300 max-lg:ease-[cubic-bezier(0.2,0.7,0.2,1)]",
+        drawerOpen && "max-lg:translate-x-0",
+      )}
+    >
+      <div ref={workspaceMenuRef} className="hairline relative border-b px-3 pt-3 pb-3">
         <button
           type="button"
           onClick={() => setWorkspaceMenuOpen((v) => !v)}
-          className="hover:bg-[var(--warm-tint)] flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors"
+          className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-[var(--warm-tint)]"
           title="Switch workspace"
           aria-haspopup="listbox"
           aria-expanded={workspaceMenuOpen}
         >
-          <Avatar
-            initials={(activeOrg ?? "?").slice(0, 1).toUpperCase()}
-            color={0}
-            rounded="md"
-          />
+          <Avatar initials={(activeOrg ?? "?").slice(0, 1).toUpperCase()} color={0} rounded="md" />
           <span className="min-w-0 flex-1">
             <span
               className="block truncate text-[13.5px] font-medium"
@@ -144,7 +149,7 @@ export function Sidebar({
 
         {workspaceMenuOpen && (
           <div
-            className="surface hairline absolute left-3 right-3 top-[calc(100%-4px)] z-30 overflow-hidden rounded-md"
+            className="surface hairline absolute top-[calc(100%-4px)] right-3 left-3 z-30 overflow-hidden rounded-md"
             style={{ boxShadow: "0 16px 40px -12px rgb(20 17 13 / 0.25)" }}
             role="listbox"
           >
@@ -158,10 +163,7 @@ export function Sidebar({
                 }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px]"
                 style={{
-                  background:
-                    i.account_login === activeOrg
-                      ? "var(--hairline)"
-                      : "transparent",
+                  background: i.account_login === activeOrg ? "var(--hairline)" : "transparent",
                   border: 0,
                   color: "var(--ink)",
                   cursor: "pointer",
@@ -171,10 +173,7 @@ export function Sidebar({
                 <span
                   className="dot"
                   style={{
-                    background:
-                      i.account_login === activeOrg
-                        ? "var(--accent)"
-                        : "var(--ink3)",
+                    background: i.account_login === activeOrg ? "var(--accent)" : "var(--ink3)",
                   }}
                 />
                 <span className="truncate">{i.account_login}</span>
@@ -219,10 +218,7 @@ export function Sidebar({
 
           <div style={{ marginLeft: 0, paddingLeft: 0, borderLeft: 0 }}>
             {chatSessions.length === 0 && (
-              <div
-                className="text-ink2"
-                style={{ fontSize: 12, padding: "6px 8px" }}
-              >
+              <div className="text-ink2" style={{ fontSize: 12, padding: "6px 8px" }}>
                 No conversations yet.
               </div>
             )}
@@ -267,8 +263,7 @@ export function Sidebar({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (confirm(`Delete "${s.title}"?`))
-                              onDeleteSession(s.id);
+                            if (confirm(`Delete "${s.title}"?`)) onDeleteSession(s.id);
                           }}
                           title="Delete"
                           style={{
@@ -300,7 +295,7 @@ export function Sidebar({
             type="button"
             onClick={() => onRoute("settings")}
             className={cn(
-              "hover:bg-[var(--warm-tint)] flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md px-0 py-1 text-left transition-colors",
+              "flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md px-0 py-1 text-left transition-colors hover:bg-[var(--warm-tint)]",
               route === "settings" && "bg-[var(--warm-tint)]",
             )}
             title="Open account"
@@ -317,10 +312,7 @@ export function Sidebar({
             ) : (
               <Avatar initials={userInitials} color={1} />
             )}
-            <span
-              className="block min-w-0 truncate text-[13px]"
-              style={{ color: "var(--ink)" }}
-            >
+            <span className="block min-w-0 truncate text-[13px]" style={{ color: "var(--ink)" }}>
               {me.user.name ?? me.user.login}
             </span>
           </button>
@@ -342,9 +334,7 @@ export function Sidebar({
 // ──────────────────────────────────────────────────────────────────
 // Group chat sessions by recency for the sidebar buckets.
 // ──────────────────────────────────────────────────────────────────
-function groupSessionsByRecency(
-  sessions: ChatSession[],
-): Array<[string, ChatSession[]]> {
+function groupSessionsByRecency(sessions: ChatSession[]): Array<[string, ChatSession[]]> {
   const pinned: ChatSession[] = [];
   const today: ChatSession[] = [];
   const yesterday: ChatSession[] = [];

@@ -667,22 +667,8 @@ html.dark .filepath {
 }
 
 /* ---------- App: sidebar / nav ---------- */
-.app-shell {
-  display: grid;
-  grid-template-columns: 240px 1fr;
-  height: 100vh;
-  position: relative;
-  z-index: 2;
-}
-@media (max-width: 880px) {
-  .app-shell {
-    grid-template-columns: 1fr;
-  }
-  .sidebar {
-    display: none;
-  }
-}
-
+/* Shell layout is Tailwind utilities in AppShell.tsx (mobile drawer
+   included). Only the themed surface stays here. */
 .sidebar {
   background: var(--bg);
   border-right: 1px solid var(--hairline);
@@ -744,25 +730,6 @@ html.dark .sidebar {
 .nav-item.elevated .ico {
   color: var(--accent);
   opacity: 1;
-}
-
-.iconbtn {
-  width: 30px;
-  height: 30px;
-  border-radius: 5px;
-  display: grid;
-  place-items: center;
-  color: var(--ink2);
-  cursor: pointer;
-  transition:
-    background 0.15s ease,
-    color 0.15s ease;
-  background: transparent;
-  border: 0;
-}
-.iconbtn:hover {
-  background: var(--warm-tint);
-  color: var(--ink);
 }
 
 /* ---------- App: content / scroll ---------- */
