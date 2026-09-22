@@ -1,8 +1,23 @@
 """Dashboard composition — pulls together repos, PRs, alerts, contributors,
 and computes KPIs (current vs previous 7-day window) for the headline UI.
+
+Performance notes
+─────────────────
+Every number here comes from the GitHub REST/Search API, so a cold build is
+dominated by network round-trips (~0.3–0.8s each). Two things keep it fast:
+
+1.  **Concurrency** — independent upstreams are awaited together with
+    ``asyncio.gather`` (KPI searches, repos+alerts+events wave, per-repo
+    commit walks). Python's "computation" is trivial; the wall clock is
+    GitHub latency, so overlapping requests shrinks the critical path from
+    ~20 sequential round-trips to roughly the slowest two or three.
+2.  **Payload caching** — the fully-assembled :class:`DashboardSummary` is
+    cached for 90s (``_DASHBOARD_CACHE_TTL``), so repeat visits and tab
+    switches skip GitHub entirely.
 """
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -15,9 +30,13 @@ from app.models.schemas import (
     Kpi,
     Repo,
 )
+from app.services import cache
 from app.services.activity import list_org_events
 from app.services.alerts import list_alerts
 from app.services.repos import list_org_repos, repo_scan_cap
+
+# How long the assembled dashboard may be served without a rebuild.
+_DASHBOARD_CACHE_TTL = 90
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -78,21 +97,39 @@ def _headline(org: str, prs_merged: Kpi, active_devs: int) -> str:
 # ──────────────────────────────────────────────────────────────────
 # Top contributors — fetch commits in the last 7 days across top repos
 # ──────────────────────────────────────────────────────────────────
+async def _fetch_repo_commits(
+    install_id: int | None, full_name: str, since_iso: str
+) -> list[dict[str, Any]]:
+    """One repo's recent commits; empty on any failure (best-effort walk)."""
+    try:
+        return await gh_for(install_id).collect(
+            f"/repos/{full_name}/commits",
+            params={"since": since_iso},
+            max_pages=1,
+            per_page=100,
+        )
+    except Exception:
+        return []
+
+
 async def _top_contributors(
     install_id: int | None, repos: list[Repo], since_iso: str, limit: int = 5
 ) -> list[Contributor]:
+    # Previously one repo at a time — with the 10-repo scan cap that was a
+    # guaranteed 10-round-trip critical path on every cold dashboard load.
+    # Cap the fan-out so a huge org doesn't open 30 sockets at once; 5 is
+    # roughly where GitHub latency (~0.3–0.8s/req) stops being the bottleneck.
+    scan = repos[: repo_scan_cap(install_id, install_cap=10)]
+    sem = asyncio.Semaphore(5)
+
+    async def bounded(repo: Repo) -> list[dict[str, Any]]:
+        async with sem:
+            return await _fetch_repo_commits(install_id, repo.full_name, since_iso)
+
+    per_repo = await asyncio.gather(*(bounded(r) for r in scan))
+
     stats: dict[str, dict[str, Any]] = {}
-    gh = gh_for(install_id)
-    for repo in repos[: repo_scan_cap(install_id, install_cap=10)]:
-        try:
-            commits = await gh.collect(
-                f"/repos/{repo.full_name}/commits",
-                params={"since": since_iso},
-                max_pages=1,
-                per_page=100,
-            )
-        except Exception:
-            continue
+    for commits in per_repo:
         for c in commits:
             login = (c.get("author") or {}).get("login")
             if not login:
@@ -145,6 +182,10 @@ async def build_dashboard(install: dict[str, Any]) -> DashboardSummary:
     org_lower = install["account_login"].lower()
     mode = install.get("mode", "install")
 
+    cache_key = f"dashboard:{install_id or 'public:' + org_lower}"
+    if (cached := cache.get(cache_key)) is not None:
+        return cached
+
     now = datetime.now(timezone.utc)
     week_start = now - timedelta(days=7)
     prev_start = now - timedelta(days=14)
@@ -152,43 +193,40 @@ async def build_dashboard(install: dict[str, Any]) -> DashboardSummary:
     week_date = week_start.date().isoformat()
     prev_date = prev_start.date().isoformat()
 
-    # Parallel-able stats — keep simple sequential for now (cache covers).
-    prs_merged_now = await _search_count(
-        install_id, f"org:{org_lower} is:pr is:merged merged:>={week_date}"
-    )
-    prs_merged_prev = await _search_count(
-        install_id,
-        f"org:{org_lower} is:pr is:merged merged:{prev_date}..{week_date}",
-    )
-    prs_opened_now = await _search_count(
-        install_id, f"org:{org_lower} is:pr created:>={week_date}"
-    )
-    prs_opened_prev = await _search_count(
-        install_id,
-        f"org:{org_lower} is:pr created:{prev_date}..{week_date}",
+    # Wave 1 — the four KPI searches are independent: fire them together
+    # instead of paying 4× Search-API latency back to back.
+    prs_merged_now, prs_merged_prev, prs_opened_now, prs_opened_prev = await asyncio.gather(
+        _search_count(install_id, f"org:{org_lower} is:pr is:merged merged:>={week_date}"),
+        _search_count(install_id, f"org:{org_lower} is:pr is:merged merged:{prev_date}..{week_date}"),
+        _search_count(install_id, f"org:{org_lower} is:pr created:>={week_date}"),
+        _search_count(install_id, f"org:{org_lower} is:pr created:{prev_date}..{week_date}"),
     )
 
-    # A public workspace can hit GitHub's anonymous rate limit while loading
-    # the dashboard. Keep the page usable with the KPI sections that already
-    # succeeded instead of turning an optional data source failure into 403.
-    try:
-        repos = await list_org_repos(install_id, org_lower)
-    except GitHubError:
-        repos = []
+    # Wave 2 — repos, alerts and events come from different upstreams; run
+    # them concurrently. A public workspace can hit GitHub's anonymous rate
+    # limit while loading the dashboard: keep the page usable with the
+    # sections that already succeeded instead of turning an optional data
+    # source failure into 403.
+    repos_results = await asyncio.gather(
+        list_org_repos(install_id, org_lower),
+        list_alerts(install_id, org_lower, limit=50),
+        list_org_events(install, limit=8),
+        return_exceptions=True,
+    )
+    repos = [] if isinstance(repos_results[0], BaseException) else repos_results[0]
+    alerts_all = [] if isinstance(repos_results[1], BaseException) else repos_results[1]
+    events = [] if isinstance(repos_results[2], BaseException) else repos_results[2]
+
     repos_sorted = sorted(
         repos,
         key=lambda r: r.pushed_at or datetime.min.replace(tzinfo=timezone.utc),
         reverse=True,
     )
 
+    # Wave 3 — contributors need the repo list, so they start only after
+    # wave 2; per-repo walks run concurrently internally.
     contribs = await _top_contributors(install_id, repos_sorted, week_iso, limit=5)
     active_devs_now = len(contribs)
-
-    try:
-        alerts_all = await list_alerts(install_id, org_lower, limit=50)
-    except GitHubError:
-        alerts_all = []
-    events = await list_org_events(install, limit=8)
 
     # ── KPIs ──
     pr_merged_delta, pr_merged_pct, pr_merged_dir, _ = _delta(
@@ -236,7 +274,7 @@ async def build_dashboard(install: dict[str, Any]) -> DashboardSummary:
     headline = _headline(org, kpis[0], active_devs_now)
     period_label = f"Week of {week_start.strftime('%b %-d')}"
 
-    return DashboardSummary(
+    summary = DashboardSummary(
         org=org,
         org_type=install.get("account_type"),
         mode=mode,
@@ -250,3 +288,5 @@ async def build_dashboard(install: dict[str, Any]) -> DashboardSummary:
         alerts_total=len(alerts_all),
         recent_activity=events,
     )
+    cache.set_(cache_key, summary, _DASHBOARD_CACHE_TTL)
+    return summary

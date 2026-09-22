@@ -1,19 +1,31 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
 from app.clients.github import gh_for
 from app.models.schemas import LeaderboardEntry
+from app.services import cache
 from app.services.repos import list_org_repos, repo_scan_cap
 
 log = logging.getLogger("dypol.leaderboard")
+
+# The leaderboard used to walk up to 30 repos × 2 commit pages strictly
+# sequentially — 60 GitHub round-trips before any byte of response. Cache
+# the computed board so repeat visits (and the digest, which calls into
+# this) skip the walk entirely within the TTL.
+_LEADERBOARD_CACHE_TTL = 120
 
 
 async def compute_leaderboard(
     install_id: int | None, org_login: str, days: int = 30, limit: int = 25
 ) -> list[LeaderboardEntry]:
+    cache_key = f"leaderboard:{install_id or 'public:' + org_login.lower()}:{days}:{limit}"
+    if (cached := cache.get(cache_key)) is not None:
+        return cached
+
     since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
 
     stats: dict[str, dict[str, float]] = defaultdict(
@@ -25,15 +37,26 @@ async def compute_leaderboard(
     repos = await list_org_repos(install_id, org_login)
     gh = gh_for(install_id)
     commit_pages = 2 if install_id is not None else 1
-    for repo in repos[: repo_scan_cap(install_id, install_cap=30)]:
-        try:
-            commits = await gh.collect(
-                f"/repos/{repo.full_name}/commits",
-                params={"since": since},
-                max_pages=commit_pages,
-            )
-        except Exception:
-            continue
+    scan = repos[: repo_scan_cap(install_id, install_cap=30)]
+
+    # Fire the per-repo commit walks concurrently (bounded — 8 at a time keeps
+    # total latency ≈ slowest repo × ⌈30/8⌉ instead of the sum of all 30).
+    sem = asyncio.Semaphore(8)
+
+    async def bounded(repo_full_name: str) -> list[dict]:
+        async with sem:
+            try:
+                return await gh.collect(
+                    f"/repos/{repo_full_name}/commits",
+                    params={"since": since},
+                    max_pages=commit_pages,
+                )
+            except Exception:
+                # One dead/rate-limited repo shouldn't sink the board.
+                return []
+
+    per_repo = await asyncio.gather(*(bounded(r.full_name) for r in scan))
+    for commits in per_repo:
         for c in commits:
             login = (c.get("author") or {}).get("login")
             if not login:
@@ -77,4 +100,7 @@ async def compute_leaderboard(
     entries.sort(key=lambda e: e.score, reverse=True)
     for i, e in enumerate(entries[:limit], start=1):
         e.rank = i
-    return entries[:limit]
+    result = entries[:limit]
+
+    cache.set_(cache_key, result, _LEADERBOARD_CACHE_TTL)
+    return result
