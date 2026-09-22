@@ -19,7 +19,7 @@ const TOOLS = [
 
 export function HowItWorksSection() {
   return (
-    <section className="container-x reveal hairline border-t py-28 md:py-36">
+    <section className="container-x reveal hairline border-t py-20 md:py-36">
       <div className="mb-14 grid grid-cols-12 gap-x-10">
         <div className="col-span-12 lg:col-span-3">
           <div className="eyebrow">03 / How the agent works</div>
@@ -28,7 +28,7 @@ export function HowItWorksSection() {
           <h2 className="h-section">
             Eight tools. <em>Any question.</em>
           </h2>
-          <p className="text-ink2 mt-6 max-w-[680px] text-[18px]">
+          <p className="text-ink2 mt-6 max-w-[680px] text-[17px] sm:text-[18px]">
             DyPol's agent has access to a focused set of primitives &mdash; SQL on engineering
             metadata, full git command access on read-only repo clones, file reading at any commit,
             Python for analysis, chart rendering, and semantic search across PRs and issues. It

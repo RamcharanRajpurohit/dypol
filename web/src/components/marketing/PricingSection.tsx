@@ -48,10 +48,7 @@ const PLANS: ReadonlyArray<Plan> = [
 
 export function PricingSection() {
   return (
-    <section
-      id="pricing"
-      className="container-x reveal hairline border-t py-28 md:py-36"
-    >
+    <section id="pricing" className="container-x reveal hairline border-t py-28 md:py-36">
       <div className="mb-14 grid grid-cols-12 gap-x-10">
         <div className="col-span-12 lg:col-span-3">
           <div className="eyebrow">05 / Pricing</div>

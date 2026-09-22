@@ -2,13 +2,10 @@
 
 export function CtaSection() {
   return (
-    <section
-      id="cta"
-      className="container-x reveal hairline border-t py-28 md:py-40"
-    >
+    <section id="cta" className="container-x reveal hairline border-t py-20 md:py-40">
       <div className="mx-auto max-w-[820px] text-center">
         <p
-          className="display mb-10 text-[40px] leading-[1.05] md:text-[56px]"
+          className="display mb-10 text-[30px] leading-[1.05] sm:text-[40px] md:text-[56px]"
           style={{ letterSpacing: "-0.015em" }}
         >
           Install on GitHub.

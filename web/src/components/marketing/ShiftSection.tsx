@@ -7,10 +7,7 @@ const KPIS = [
 
 export function ShiftSection() {
   return (
-    <section
-      id="shift"
-      className="container-x reveal hairline border-t py-28 md:py-36"
-    >
+    <section id="shift" className="container-x reveal hairline border-t py-20 md:py-36">
       <div className="mb-16 grid grid-cols-12 gap-x-10">
         <div className="col-span-12 lg:col-span-3">
           <div className="eyebrow">01 / The shift</div>
@@ -32,16 +29,18 @@ export function ShiftSection() {
           </div>
 
           <div
-            className="bg-surface hairline rounded-[8px] border p-7"
+            className="bg-surface hairline rounded-[8px] border p-5 sm:p-7"
             style={{ boxShadow: "0 1px 0 rgb(20 17 13 / 0.02)" }}
           >
-            <div className="grid grid-cols-2 gap-x-6 gap-y-8">
+            <div className="grid grid-cols-2 gap-x-4 gap-x-6 gap-y-6 sm:gap-y-8">
               {KPIS.map((kpi) => (
                 <div key={kpi.label}>
                   <div className="caption mb-2">{kpi.label}</div>
-                  <div className="display tabular text-[44px] leading-none">
+                  <div className="display tabular text-[34px] leading-none sm:text-[44px]">
                     {kpi.value}
-                    {kpi.unit && <span className="text-ink2 text-[22px]">{kpi.unit}</span>}
+                    {kpi.unit && (
+                      <span className="text-ink2 text-[17px] sm:text-[22px]">{kpi.unit}</span>
+                    )}
                   </div>
                   <div className="text-ink2 mono tabular mt-1 text-[11px]">{kpi.delta}</div>
                 </div>
@@ -64,16 +63,18 @@ export function ShiftSection() {
           </div>
 
           <div className="space-y-5">
-            <div className="border-l-2 pl-5" style={{ borderColor: "var(--ink)" }}>
+            <div className="border-l-2 pl-4 sm:pl-5" style={{ borderColor: "var(--ink)" }}>
               <div className="caption mb-1.5">Founder</div>
-              <p className="text-ink mono text-[14px]">Why is deploy frequency down this week?</p>
+              <p className="text-ink mono text-[13.5px] sm:text-[14px]">
+                Why is deploy frequency down this week?
+              </p>
             </div>
 
-            <div className="border-l-2 pl-5" style={{ borderColor: "var(--accent)" }}>
+            <div className="border-l-2 pl-4 sm:pl-5" style={{ borderColor: "var(--accent)" }}>
               <div className="caption mb-1.5" style={{ color: "var(--accent)" }}>
                 DyPol
               </div>
-              <p className="text-[16px] leading-relaxed">
+              <p className="text-[15.5px] leading-relaxed sm:text-[16px]">
                 Two reasons. First, the staging cluster was down Tues–Wed (
                 <a className="cite">incident #84</a>) and four PRs that were ready couldn't ship.
                 Second, <span className="mono text-[13.5px]">billing-svc</span> has had only one
@@ -82,20 +83,20 @@ export function ShiftSection() {
               </p>
             </div>
 
-            <div className="border-l-2 pl-5" style={{ borderColor: "var(--ink)" }}>
+            <div className="border-l-2 pl-4 sm:pl-5" style={{ borderColor: "var(--ink)" }}>
               <div className="caption mb-1.5">Founder</div>
-              <p className="text-ink mono text-[14px]">Show me the four PRs.</p>
+              <p className="text-ink mono text-[13.5px] sm:text-[14px]">Show me the four PRs.</p>
             </div>
 
-            <div className="border-l-2 pl-5" style={{ borderColor: "var(--accent)" }}>
+            <div className="border-l-2 pl-4 sm:pl-5" style={{ borderColor: "var(--accent)" }}>
               <div className="caption mb-1.5" style={{ color: "var(--accent)" }}>
                 DyPol
               </div>
-              <p className="text-[16px] leading-relaxed">
+              <p className="text-[15.5px] leading-relaxed sm:text-[16px]">
                 <a className="cite">#1234</a> <a className="cite">#1238</a>{" "}
                 <a className="cite">#1241</a> <a className="cite">#1245</a> &mdash; all green, all
-                approved, deploying now that staging is healthy. The first one is a 4-line copy
-                fix; want me to start there?
+                approved, deploying now that staging is healthy. The first one is a 4-line copy fix;
+                want me to start there?
               </p>
             </div>
           </div>

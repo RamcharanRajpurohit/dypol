@@ -32,8 +32,9 @@ const FAQS: ReadonlyArray<Faq> = [
     a: (
       <>
         Impact, Quality, Collaboration, Consistency &mdash; each on a 0–100 scale, derived from
-        shipped work. The full formula is published, versioned, and runnable on your data. No
-        opaque magic.{/* . <a href="#" className="ulink text-accent">
+        shipped work. The full formula is published, versioned, and runnable on your data. No opaque
+        magic.
+        {/* . <a href="#" className="ulink text-accent">
            Read the methodology &rarr;
          </a> */}
       </>
@@ -54,8 +55,8 @@ const FAQS: ReadonlyArray<Faq> = [
     q: "What if I want my data deleted?",
     a: (
       <>
-        One click in Settings. The deletion job runs within an hour and we send you a signed
-        receipt with the row counts removed. Backups roll over within 30 days.
+        One click in Settings. The deletion job runs within an hour and we send you a signed receipt
+        with the row counts removed. Backups roll over within 30 days.
       </>
     ),
     border: "top-bottom",
@@ -64,7 +65,7 @@ const FAQS: ReadonlyArray<Faq> = [
 
 export function FaqSection() {
   return (
-    <section className="container-x reveal hairline border-t py-28 md:py-36">
+    <section className="container-x reveal hairline border-t py-20 md:py-36">
       <div className="mb-14 grid grid-cols-12 gap-x-10">
         <div className="col-span-12 lg:col-span-3">
           <div className="eyebrow">06 / Questions worth asking</div>
@@ -82,7 +83,7 @@ export function FaqSection() {
             {FAQS.map((faq) => (
               <div
                 key={faq.q}
-                className={`hairline grid grid-cols-12 gap-x-8 border-t py-7 ${
+                className={`hairline grid grid-cols-12 gap-x-8 border-t py-5 sm:py-7 ${
                   faq.border === "top-bottom" ? "border-b" : ""
                 }`}
               >

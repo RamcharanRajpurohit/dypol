@@ -68,10 +68,13 @@ export function SignInModal({ open, onClose }: Props) {
         timersRef.current.push(t);
         return;
       }
-      const t = setTimeout(() => {
-        setTraceShown((n) => n + 1);
-        queueTraceTick(index + 1);
-      }, 220 + Math.random() * 150);
+      const t = setTimeout(
+        () => {
+          setTraceShown((n) => n + 1);
+          queueTraceTick(index + 1);
+        },
+        220 + Math.random() * 150,
+      );
       timersRef.current.push(t);
     };
 
@@ -119,10 +122,13 @@ export function SignInModal({ open, onClose }: Props) {
           </button>
         </div>
 
-        <div className="px-7 py-8">
+        <div className="px-5 py-7 sm:px-7 sm:py-8">
           {step === 1 && (
             <div>
-              <h3 id="signin-title" className="display mb-2 text-[28px] leading-tight">
+              <h3
+                id="signin-title"
+                className="display mb-2 text-[24px] leading-tight sm:text-[28px]"
+              >
                 Welcome back.
               </h3>
               <p className="text-ink2 mb-6 text-[14.5px]">

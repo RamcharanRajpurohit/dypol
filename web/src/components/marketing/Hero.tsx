@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowRightIcon, GitHubIcon } from "./icons";
 
 const QUESTION = "What is Aanya working on?";
 
@@ -47,7 +46,7 @@ export function Hero() {
   };
 
   return (
-    <section className="container-x relative pt-40 pb-24 md:pt-48 md:pb-32">
+    <section className="container-x relative pt-32 pb-20 md:pt-48 md:pb-32">
       <div className="grid grid-cols-12 items-end gap-x-10 gap-y-14">
         <div ref={heroLeftRef} className="stagger col-span-12 lg:col-span-7">
           <div className="mb-8 flex items-center gap-3">
@@ -59,25 +58,14 @@ export function Hero() {
             See what your engineering team is <em>actually</em> doing.
           </h1>
 
-          <p className="text-ink2 mb-10 max-w-[600px] text-[18px] leading-[1.55]">
+          <p className="text-ink2 mb-10 max-w-[600px] text-[17px] leading-[1.55] sm:text-[18px]">
             DyPol is an AI analyst that reads your GitHub data and source code, then answers any
             question you have about your engineering org &mdash; from{" "}
             <span className="italic-serif">"what did we ship last week"</span> to{" "}
             <span className="italic-serif">"why is the billing PR taking so long."</span>
           </p>
 
-          <div className="flex flex-wrap items-center gap-6">
-            <a href="#cta" className="btn-primary">
-              <GitHubIcon />
-              Install on GitHub
-              <ArrowRightIcon />
-            </a>
-            {/* <a href="#video" className="btn-quiet">
-              Or watch a 90-second tour <span aria-hidden>→</span>
-            </a> */}
-          </div>
-
-          <div className="mt-14 flex items-center gap-6">
+          <div className="mt-12 flex flex-wrap items-center gap-x-3 gap-y-2 md:mt-14">
             <span className="caption">Read-only GitHub App</span>
             <span className="text-ink2">·</span>
             <span className="caption">SOC 2 in progress</span>
@@ -86,7 +74,7 @@ export function Hero() {
           </div>
         </div>
 
-        <div className="col-span-12 lg:col-span-5">
+        <div className="col-span-12 mt-2 lg:col-span-5 lg:mt-0">
           <div
             ref={widgetRef}
             onMouseMove={onWidgetMove}
@@ -108,7 +96,7 @@ export function Hero() {
               </div>
             </div>
 
-            <div className="px-5 py-5 text-[14.5px] leading-relaxed">
+            <div className="px-4 py-4 text-[13.5px] leading-relaxed sm:px-5 sm:py-5 sm:text-[14.5px]">
               <div className="mb-4 flex items-baseline gap-2">
                 <span className="text-ink2 mono text-[12px] select-none">›</span>
                 <span className="mono text-[13.5px]">{typed}</span>

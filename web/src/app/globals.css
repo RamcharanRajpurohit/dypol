@@ -63,7 +63,7 @@ html.dark {
   --hairline: #2f2a23;
   --hairline2: #3a3429;
   --accent: #14b8a6;
-  --accent2: rgb(20 184 166 / 0.10);
+  --accent2: rgb(20 184 166 / 0.1);
   --ok: #7fa56e;
   --hot: #d58a5c;
   --stuck: #c26a6a;
@@ -156,7 +156,7 @@ html.dark body::before {
   font-size: 10.5px;
   line-height: 1;
   text-transform: uppercase;
-  letter-spacing: 0.10em;
+  letter-spacing: 0.1em;
   color: var(--ink2);
   font-weight: 500;
 }
@@ -170,7 +170,7 @@ html.dark body::before {
 .h-display {
   font-family: var(--font-sans);
   font-weight: 500;
-  font-size: clamp(44px, 6.6vw, 84px);
+  font-size: clamp(34px, 6.6vw, 84px);
   line-height: 0.98;
   letter-spacing: -0.028em;
 }
@@ -229,7 +229,7 @@ html.dark body::before {
 .container-x {
   max-width: 1240px;
   margin-inline: auto;
-  padding-inline: 28px;
+  padding-inline: 20px;
 }
 @media (min-width: 1024px) {
   .container-x {
@@ -240,6 +240,11 @@ html.dark body::before {
   max-width: 1180px;
   margin: 0 auto;
   padding: 44px 56px 120px;
+}
+@media (max-width: 768px) {
+  .container-app {
+    padding: 28px 20px 80px;
+  }
 }
 
 /* ---------- Buttons ---------- */
@@ -370,6 +375,11 @@ html.dark .btn-primary-sm:hover {
     0 1px 0 rgb(20 17 13 / 0.02),
     0 12px 30px -22px rgb(20 17 13 / 0.18);
   top: 14px;
+}
+@media (max-width: 640px) {
+  .nav.is-floating {
+    max-width: none;
+  }
 }
 
 /* ---------- Cursor-aware glow ---------- */
@@ -632,7 +642,7 @@ html.dark .filepath {
   font-family: var(--font-serif);
   font-style: italic;
   font-weight: 400;
-  font-size: 28px;
+  font-size: clamp(19px, 1.2vw + 15px, 28px);
   line-height: 1.2;
   letter-spacing: -0.005em;
 }
@@ -771,12 +781,12 @@ html.dark .sidebar {
   height: 10px;
 }
 .scroll::-webkit-scrollbar-thumb {
-  background: rgb(20 17 13 / 0.10);
+  background: rgb(20 17 13 / 0.1);
   border-radius: 999px;
   border: 3px solid var(--bg);
 }
 html.dark .scroll::-webkit-scrollbar-thumb {
-  background: rgb(255 255 255 / 0.10);
+  background: rgb(255 255 255 / 0.1);
 }
 
 .kpi-num {
@@ -843,7 +853,7 @@ table.data {
 table.data th {
   font-size: 10.5px;
   text-transform: uppercase;
-  letter-spacing: 0.10em;
+  letter-spacing: 0.1em;
   font-weight: 500;
   color: var(--ink3);
   text-align: left;
@@ -977,7 +987,7 @@ table.data .right {
 .drawer-mask {
   position: fixed;
   inset: 0;
-  background: rgb(20 17 13 / 0.30);
+  background: rgb(20 17 13 / 0.3);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   opacity: 0;
@@ -1281,12 +1291,34 @@ html.dark .drawer-mask {
   margin-bottom: 8px;
 }
 
+@media (max-width: 640px) {
+  .digest-col p {
+    margin-bottom: 12px;
+  }
+  .digest-col h2 {
+    font-size: 21px;
+  }
+  .digest-col h1 {
+    font-size: 30px;
+  }
+}
+
 .pulse-mini {
   width: 6px;
   height: 6px;
   border-radius: 999px;
   background: var(--accent);
   animation: pulseSmall 1.6s ease-in-out infinite;
+}
+
+/* Small screens: keep the composer inside the viewport. */
+@media (max-width: 640px) {
+  .composer-wrap {
+    padding: 12px 16px 16px;
+  }
+  .ask-thread {
+    padding: 32px 20px 180px;
+  }
 }
 @keyframes pulseSmall {
   0%,
@@ -1414,8 +1446,11 @@ html.dark .drawer-mask {
   content: "";
   position: absolute;
   inset: 0;
-  background-image:
-    repeating-linear-gradient(0deg, rgb(20 17 13 / 0.025) 0 1px, transparent 1px 80px),
+  background-image: repeating-linear-gradient(
+      0deg,
+      rgb(20 17 13 / 0.025) 0 1px,
+      transparent 1px 80px
+    ),
     repeating-linear-gradient(90deg, rgb(20 17 13 / 0.025) 0 1px, transparent 1px 80px);
   pointer-events: none;
 }
@@ -1447,6 +1482,18 @@ html.dark ::selection {
   color: var(--ink);
 }
 
+/* ---------- Small-screen helpers (marketing page) ---------- */
+@media (max-width: 640px) {
+  .mono-overflow,
+  .codeblock {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .codeblock > div:first-child {
+    white-space: nowrap;
+  }
+}
+
 /* ── Skeleton loader ───────────────────────────────────── */
 .dypol-skeleton {
   background: linear-gradient(
@@ -1459,13 +1506,19 @@ html.dark ::selection {
   animation: dypol-skeleton-shimmer 1.4s ease-in-out infinite;
 }
 @keyframes dypol-skeleton-shimmer {
-  0%   { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 /* Inline loading spinner (search field, inline async actions). */
 @keyframes dypol-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
