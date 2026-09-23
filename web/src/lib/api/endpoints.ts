@@ -32,7 +32,10 @@ import type {
 export const loginUrl = () => apiUrl("/auth/login");
 export const installUrl = () => apiUrl("/auth/install");
 export const logout = () => api<unknown>("/auth/logout", { method: "POST" });
-export const me = () => api<MeResponse>("/auth/me");
+// `sync=true` asks the backend to skip its install-sync throttle — used when
+// returning from the GitHub install flow so the new install shows up at once.
+export const me = (opts?: { sync?: boolean }) =>
+  api<MeResponse>("/auth/me", { query: { sync: opts?.sync ? true : null } });
 export const listConnections = () => api<ConnectionsResponse>("/auth/orgs");
 
 // Public-org workspaces (no GitHub App install required)

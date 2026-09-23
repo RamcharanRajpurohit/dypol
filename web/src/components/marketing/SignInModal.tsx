@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { loginUrl } from "@/lib/api";
+import { trackOnboarding } from "@/lib/telemetry";
 import { GitHubIcon } from "./icons";
 
 type Step = 1 | 2 | 3;
@@ -44,6 +45,7 @@ export function SignInModal({ open, onClose }: Props) {
   }, []);
 
   const startAuth = () => {
+    trackOnboarding("signin_clicked");
     setStep(2);
     setTraceShown(0);
 
@@ -61,6 +63,7 @@ export function SignInModal({ open, onClose }: Props) {
           }, 240);
           const t2 = setTimeout(() => {
             clearInterval(di);
+            trackOnboarding("oauth_redirecting");
             window.location.href = loginUrl();
           }, 600);
           timersRef.current.push(t2);

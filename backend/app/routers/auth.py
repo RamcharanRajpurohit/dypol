@@ -37,7 +37,9 @@ async def _kick_install_sync(force: bool = False) -> None:
     """Reconcile installations from GitHub, throttled to once per minute.
 
     Never raises: sync failures only mean the new workspace shows up on the
-    following request instead of this one.
+    following request instead of this one. ``force`` bypasses the throttle —
+    used when returning from the GitHub install flow, where the user is
+    staring at the screen waiting for the install to appear.
     """
     now = time.monotonic()
     if _install_sync_state["running"]:
@@ -187,7 +189,10 @@ async def logout() -> dict:
 
 
 @router.get("/me")
-async def me(user: dict = Depends(current_user)) -> dict:
+async def me(
+    user: dict = Depends(current_user),
+    sync: bool = Query(default=False),
+) -> dict:
     """Return user profile + every workspace they can use.
 
     A workspace is either:
@@ -196,8 +201,9 @@ async def me(user: dict = Depends(current_user)) -> dict:
     """
     # Opportunistic reconciliation: if an install landed recently (webhook
     # missed / scheduler asleep), pull it in now instead of showing a stale
-    # workspace list.
-    await _kick_install_sync()
+    # workspace list. ``?sync=1`` (returning from the GitHub install flow)
+    # bypasses the throttle — the user is waiting on this exact request.
+    await _kick_install_sync(force=sync)
 
     public_mode = {"mode": "public", "owner_user_id": user["github_id"]}
 
@@ -246,12 +252,21 @@ async def me(user: dict = Depends(current_user)) -> dict:
 
 
 @router.get("/orgs")
-async def list_user_connections(user: dict = Depends(current_user)) -> dict:
+async def list_user_connections(
+    user: dict = Depends(current_user),
+    sync: bool = Query(default=False),
+) -> dict:
     """List the user's existing workspaces + a generic 'connect new' URL.
 
     Includes both App installs (full access) and public-org workspaces
     (read-only, no install needed).
+
+    Kicks the (throttled) install sync: the connection picker polls this
+    endpoint while the user is off installing the App on GitHub, so the
+    fresh install reaches Mongo through THIS request even if the webhook
+    was missed.
     """
+    await _kick_install_sync(force=sync)
     s = get_settings()
     db = get_db()
 

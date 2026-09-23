@@ -1,9 +1,13 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import { AppShell } from "@/components/app/AppShell";
 import { OrgPicker } from "@/components/auth/OrgPicker";
 import { OrgProvider, useOrg } from "@/lib/api/OrgContext";
-import { goToLogin, useMe } from "@/lib/api/useMe";
+import { DEFAULT_WORKSPACE, goToLogin, useMe } from "@/lib/api/useMe";
+import { addPublicWorkspace, ApiError } from "@/lib/api";
+import type { MeResponse } from "@/lib/api/types";
+import { trackOnboarding } from "@/lib/telemetry";
 
 /**
  * Auth gate around the AppShell.
@@ -14,7 +18,32 @@ import { goToLogin, useMe } from "@/lib/api/useMe";
  * - authenticated → render AppShell wrapped in OrgProvider
  */
 export function DashboardClient() {
-  const auth = useMe();
+  // Returning from GitHub's install flow lands on /dashboard with
+  // ?installation_id=…&setup_action=install. The install reaches Mongo via
+  // webhook (can be missed) or the throttled opportunistic sync — neither
+  // guarantees the workspace is visible on the first /auth/me. Force one
+  // sync (throttle-free, backend supports ?sync=1) before the first me() so
+  // the just-installed workspace shows up immediately.
+  const [installReturn] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const p = new URLSearchParams(window.location.search);
+    const isInstall = p.has("installation_id");
+    if (isInstall) {
+      trackOnboarding("install_returned");
+      // Strip the params so a refresh doesn't re-force the sync forever.
+      p.delete("installation_id");
+      p.delete("setup_action");
+      const rest = p.toString();
+      window.history.replaceState(
+        null,
+        "",
+        window.location.pathname + (rest ? `?${rest}` : ""),
+      );
+    }
+    return isInstall;
+  });
+
+  const auth = useMe(installReturn);
 
   if (auth.kind === "loading") {
     return <CenteredMessage caption="Verifying session" title="One moment…" />;
@@ -27,12 +56,10 @@ export function DashboardClient() {
 
   if (auth.kind === "no_install") {
     return (
-      <CenteredMessage
-        caption="Connect a GitHub account"
-        title="Choose a workspace"
-      >
-        <OrgPicker onChanged={() => window.location.reload()} />
-      </CenteredMessage>
+      <ConnectWorkspace
+        me={auth.me}
+        onConnected={() => window.location.reload()}
+      />
     );
   }
 
@@ -54,11 +81,78 @@ export function DashboardClient() {
 }
 
 /**
- * Remounts the AppShell when the active org changes so all views refetch
- * with the new `?org=…` query param baked in by the API client. If for
- * any reason no org is selected yet, render nothing — prevents a flash
- * of "org_required" 400s.
+ * Connection screen for first-time (or workspace-less) users.
+ *
+ * If the default-workspace auto-add failed during sign-in (e.g. GitHub's
+ * shared anonymous rate limit), say so here with a one-click Retry instead
+ * of leaving a mystery empty state — the silent-failure onboarding bug.
  */
+function ConnectWorkspace({
+  me,
+  onConnected,
+}: {
+  me: MeResponse;
+  onConnected: () => void;
+}) {
+  const [autoAddError, setAutoAddError] = useState<string | null>(
+    me.defaultWorkspaceError ?? null,
+  );
+  const [retrying, setRetrying] = useState(false);
+
+  const retryAutoAdd = useCallback(async () => {
+    setRetrying(true);
+    setAutoAddError(null);
+    try {
+      await addPublicWorkspace(DEFAULT_WORKSPACE);
+      trackOnboarding("workspace_connected", { via: "default_retry" });
+      onConnected();
+    } catch (err) {
+      setAutoAddError(
+        err instanceof ApiError && err.status === 429
+          ? "GitHub's API limit is still spent — it resets hourly. You can add a workspace manually below in the meantime."
+          : err instanceof Error
+            ? `Still couldn't add ${DEFAULT_WORKSPACE}: ${err.message}`
+            : `Still couldn't add ${DEFAULT_WORKSPACE}.`,
+      );
+    } finally {
+      setRetrying(false);
+    }
+  }, [onConnected]);
+
+  return (
+    <CenteredMessage
+      caption="Connect a GitHub account"
+      title="Choose a workspace"
+    >
+      {autoAddError && (
+        <div
+          className="card"
+          style={{
+            marginBottom: 14,
+            padding: "12px 14px",
+            fontSize: 13,
+            textAlign: "left",
+            color: "var(--hot)",
+            lineHeight: 1.5,
+          }}
+        >
+          {autoAddError}
+          <div style={{ marginTop: 10 }}>
+            <button
+              type="button"
+              className="btn-primary btn-primary-sm"
+              onClick={retryAutoAdd}
+              disabled={retrying}
+            >
+              {retrying ? "Retrying…" : `Retry adding ${DEFAULT_WORKSPACE}`}
+            </button>
+          </div>
+        </div>
+      )}
+      <OrgPicker onChanged={onConnected} />
+    </CenteredMessage>
+  );
+}
 function ShellWithOrgKey() {
   const { activeOrg } = useOrg();
   if (!activeOrg) {

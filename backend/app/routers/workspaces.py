@@ -165,6 +165,14 @@ async def add_public_workspace(
     except GitHubError as exc:
         if exc.status == 404:
             raise HTTPException(status_code=404, detail="github_account_not_found") from exc
+        if exc.status in (403, 429):
+            # Shared anonymous budget exhausted (60 req/hr without a PAT).
+            # First-time onboarding auto-add hits this exact endpoint, so a
+            # bare 403 here used to surface as a mystery onboarding failure.
+            raise HTTPException(
+                status_code=429,
+                detail="github_rate_limited",
+            ) from exc
         raise
 
     account_type = profile.get("type", "User")  # "User" or "Organization"

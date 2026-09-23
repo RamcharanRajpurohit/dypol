@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { OrgPicker } from "@/components/auth/OrgPicker";
 import { ApiError, getMembers, getOrgInfo, logout } from "@/lib/api";
+import { resetTelemetryUser } from "@/lib/telemetry";
 import type { Member } from "@/lib/api";
 import { useOrg } from "@/lib/api/OrgContext";
 
@@ -48,6 +49,9 @@ export function SettingsView({ visible }: Props) {
     } catch {
       // ignore
     }
+    // Drop the PostHog/Sentry identity before leaving — the next sign-in on
+    // this browser must not be attributed to this user.
+    resetTelemetryUser();
     window.location.href = "/";
   };
 

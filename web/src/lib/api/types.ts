@@ -258,6 +258,10 @@ export interface MeResponse {
     avatar_url: string | null;
   };
   installations: Installation[];
+  /** Set when the first-sign-in default-workspace auto-add failed, so the
+   *  connection screen can explain why instead of showing a mystery empty
+   *  state. Never set by the backend — the client attaches it. */
+  defaultWorkspaceError?: string;
 }
 
 export interface ConnectedAccount {

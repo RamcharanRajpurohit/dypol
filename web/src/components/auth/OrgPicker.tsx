@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ApiError, listConnections, loginUrl } from "@/lib/api";
 import type { ConnectedAccount } from "@/lib/api";
+import { trackOnboarding } from "@/lib/telemetry";
 import { OrgSearch } from "./OrgSearch";
 
 /**
@@ -28,6 +29,11 @@ export function OrgPicker({
   const refresh = async () => {
     try {
       const d = await listConnections();
+      // Funnel: a previously-empty list gaining its first workspace = the
+      // user got connected (manual add or returning from the GitHub install).
+      if (connected && connected.length === 0 && d.connected.length > 0) {
+        trackOnboarding("workspace_connected", { via: "picker", count: d.connected.length });
+      }
       setConnected(d.connected);
       setInstallUrl(d.install_url);
       onChanged?.();

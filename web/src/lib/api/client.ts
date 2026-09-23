@@ -38,7 +38,10 @@ function buildUrl(path: string, query?: ApiOptions["query"]): string {
   const url = new URL(path, API_BASE_URL);
   if (query) {
     for (const [k, v] of Object.entries(query)) {
-      if (v !== undefined) url.searchParams.set(k, String(v));
+      // null/undefined mean "no value" — omit entirely (a String(null) would
+      // send the literal string "null", which the backend then resolves as an
+      // org login and 404s on).
+      if (v !== null && v !== undefined) url.searchParams.set(k, String(v));
     }
   }
   // Auto-attach the active org if the caller didn't already supply one.
