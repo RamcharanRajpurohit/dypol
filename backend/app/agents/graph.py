@@ -69,9 +69,19 @@ class AgentState(TypedDict):
 
 
 def build_agent_graph(
-    tools: list[Any], install: dict[str, Any], collector: Any | None = None
+    tools: list[Any],
+    install: dict[str, Any],
+    collector: Any | None = None,
+    decision: Any | None = None,
 ):
     """Compile and return the LangGraph agent for one workspace + toolset.
+
+    ``decision`` — optional ``app.policy.PolicyDecision`` for this turn. It sets
+    the model tier the chain starts on, the effort passed to every model call,
+    the tool-turn cap and the history budget. ``None`` keeps the configured
+    values, which is also exactly what the default ``role_table`` policy
+    returns — so wiring a decision through changes nothing until a different
+    policy is selected.
 
     ``collector`` — optional shared ``TraceCollector`` so top-level tool rows
     and sub-agent (delegate) rows accumulate into one correctly-ordered flat
@@ -81,6 +91,16 @@ def build_agent_graph(
     settings = get_settings()
     tools_by_name = {t.name: t for t in tools}
     chain = model_chain()
+    effort = None
+    max_tool_turns = settings.agent_max_tool_turns
+    history_budget = settings.agent_history_token_budget
+    if decision is not None:
+        from app.policy.axes import order_chain
+
+        chain = order_chain(chain, decision.model_tier)
+        effort = decision.effort
+        max_tool_turns = decision.max_tool_turns
+        history_budget = decision.history_token_budget
 
     async def prepare(state: AgentState) -> dict[str, Any]:
         """Trim history to the token budget and strip any stale system message.
@@ -96,7 +116,7 @@ def build_agent_graph(
 
         messages = list(state["messages"])
         non_system = [m for m in messages if not isinstance(m, SystemMessage)]
-        keep = trim_history(non_system, settings.agent_history_token_budget)
+        keep = trim_history(non_system, history_budget)
         keep_ids = {id(m) for m in keep}
         # Remove anything not kept (trimmed-off history + any stale system msg).
         clears = [
@@ -139,6 +159,7 @@ def build_agent_graph(
                     use_fallback=use_fallback,
                     tools=tools,
                     tool_choice=tool_choice,
+                    effort=effort,
                 )
                 start_ns = time.perf_counter_ns()
                 resp = await asyncio.wait_for(
@@ -273,7 +294,9 @@ def build_agent_graph(
                     # No tool_choice is passed: forcing "none" still emptied 1
                     # in 3, while a plain bind was clean. The nudge above is
                     # what keeps the model from actually calling anything.
-                    model = build_model(provider, use_fallback=use_fallback, tools=tools)
+                    model = build_model(
+                        provider, use_fallback=use_fallback, tools=tools, effort=effort
+                    )
                     start_ns = time.perf_counter_ns()
                     resp = await asyncio.wait_for(
                         model.ainvoke(convo), timeout=_LLM_TIMEOUT_S
@@ -339,7 +362,7 @@ def build_agent_graph(
         has_calls = bool(getattr(last, "tool_calls", None))
         if has_calls:
             # Wants tools: run them under the cap, else force a final answer.
-            if state.get("tool_turns", 0) < settings.agent_max_tool_turns:
+            if state.get("tool_turns", 0) < max_tool_turns:
                 return "tools"
             return "synthesize"
         # No tool calls. If the message has no usable text, recover instead of
@@ -480,25 +503,37 @@ def _build_turn(
     from langchain_core.messages import HumanMessage
 
     from app.agents.tracing import TraceCollector
+    from app.policy import axes as policy_axes
+    from app.policy import decide
 
     collector = TraceCollector(emit=emit)
 
-    extra_tools: list[Any] = []
-    try:
-        from app.agents.budget import DelegationBudget
-        from app.agents.registry import build_delegate_tools
+    # One resource decision for the whole turn (app/policy). The default
+    # role_table policy returns today's values, so this is behaviour-neutral
+    # unless AGENT_POLICY selects something else.
+    decision = decide(content, prior, install)
+    collector.record_decision(decision)
+    install = policy_axes.apply_to_install(install, decision)
 
-        budget = DelegationBudget()
-        extra_tools = (
-            build_delegate_tools(install, budget=budget, trace=collector) or []
-        )
-    except Exception:
-        extra_tools = []  # sub-agent layer absent → base toolset only
+    extra_tools: list[Any] = []
+    if policy_axes.wants_delegates(decision.tool_scope):
+        try:
+            from app.agents.budget import DelegationBudget
+            from app.agents.registry import build_delegate_tools
+
+            budget = DelegationBudget()
+            extra_tools = (
+                build_delegate_tools(install, budget=budget, trace=collector) or []
+            )
+        except Exception:
+            extra_tools = []  # sub-agent layer absent → base toolset only
 
     from app.agents.tools import build_tools
 
     tools = build_tools(install, extra_tools=extra_tools)
-    graph = build_agent_graph(tools, install, collector=collector)
+    tools = policy_axes.scope_tools(tools, decision.tool_scope)
+    tools = policy_axes.drop_disabled_tools(tools, decision)
+    graph = build_agent_graph(tools, install, collector=collector, decision=decision)
 
     history = messages_from_mongo(prior)
     # Anti-parrot guard: tool-calling models (esp. Gemini) tend to COPY the last

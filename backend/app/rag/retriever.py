@@ -239,7 +239,9 @@ def semantic_search_handler_factory(install: dict[str, Any]):
                 query,
                 kind=kind,
                 repo=repo,
-                k=k or get_settings().rag_retrieval_k,
+                # Explicit k from the model wins, then the turn's policy
+                # default (app.policy.axes.apply_to_install), then settings.
+                k=k or install.get("_policy_retrieval_k") or get_settings().rag_retrieval_k,
             )
         except Exception as exc:
             return {"error": "semantic_search_failed", "message": str(exc)}

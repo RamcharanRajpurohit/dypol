@@ -75,6 +75,9 @@ class Settings(BaseSettings):
     agent_temperature: float = Field(0.2, alias="AGENT_TEMPERATURE")
     agent_max_tokens: int = Field(1200, alias="AGENT_MAX_TOKENS")
     agent_max_tool_turns: int = Field(6, alias="AGENT_MAX_TOOL_TURNS")
+    # Per-turn resource policy (app/policy). "role_table" reproduces the
+    # hand-tuned behaviour exactly; see app.policy.registry for the others.
+    agent_policy: str = Field("role_table", alias="AGENT_POLICY")
     # Context management: trim history to this token budget before each LLM
     # call; fold older turns into a running summary once they exceed N msgs.
     agent_history_token_budget: int = Field(12000, alias="AGENT_HISTORY_TOKEN_BUDGET")

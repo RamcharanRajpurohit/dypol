@@ -42,6 +42,7 @@ class TraceCollector:
         # FUTURE_PLAN §2.4 lists the absence of this as the reason there is no
         # reward to train a policy on.
         self._model_calls: list[dict[str, Any]] = []
+        self._decision: dict[str, Any] | None = None
 
     def record(
         self,
@@ -102,6 +103,17 @@ class TraceCollector:
             }
         )
 
+    def record_decision(self, decision: Any) -> None:
+        """Attach the turn's ``PolicyDecision`` so the stored trace says which
+        policy spent the money — required to re-score it under another one."""
+        try:
+            self._decision = decision.to_dict()
+        except Exception:
+            self._decision = None
+
+    def decision(self) -> dict[str, Any] | None:
+        return self._decision
+
     def as_chat_tool_calls(self) -> list[dict[str, Any]]:
         """Return the flat list of ChatToolCall-shaped dicts (live reference)."""
         return self._calls
@@ -127,6 +139,7 @@ class TraceCollector:
             ),
             "fully_priced": all(m["priced"] for m in self._model_calls),
             "latency_ms": sum(m["duration_ms"] or 0 for m in self._model_calls),
+            "policy": (self.decision() or {}).get("policy"),
         }
 
     def __len__(self) -> int:  # convenience for callers / tests

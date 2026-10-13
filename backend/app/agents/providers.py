@@ -128,8 +128,13 @@ def build_model(
     use_fallback: bool = False,
     tools: list[Any] | None = None,
     tool_choice: str | None = None,
+    effort: Any | None = None,
 ) -> BaseChatModel:
     """Construct a bound ``BaseChatModel`` for ``provider``.
+
+    ``effort`` — optional ``app.policy.EffortLevel``. Mapped onto whatever this
+    provider/model actually accepts by ``app.policy.effort``; ``None`` (and
+    ``EffortLevel.DEFAULT``) send no effort parameters, i.e. today's request.
 
     ``use_fallback`` selects the provider's lighter/cheaper fallback model
     (used by the quota-swap path). ``tools``, when given, are bound via
@@ -159,6 +164,15 @@ def build_model(
         "api_key": api_key,
         **_max_tokens_kwargs(lc_provider, s.agent_max_tokens),
     }
+    if effort is not None:
+        from app.policy.effort import apply_effort
+
+        max_key = "max_output_tokens" if lc_provider == "google_genai" else "max_tokens"
+        kwargs = apply_effort(kwargs, model_name, effort, max_tokens_key=max_key)
+        # Anthropic rejects a forced tool_choice ("any"/"tool") while extended
+        # thinking is on; let the model choose instead of failing the call.
+        if "thinking" in kwargs and tool_choice not in (None, "auto"):
+            tool_choice = "auto"
     model = init_chat_model(model_name, **kwargs)
     if tools:
         if tool_choice is not None:
