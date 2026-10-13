@@ -112,10 +112,16 @@ def build_agent_graph(
         The live system prompt (workspace context + running summary) is prepended
         here at call time so it is ALWAYS the first message the model receives.
         """
-        system = SystemMessage(
-            content=build_system_prompt(install, state.get("running_summary", ""))
-            + state.get("extra_context", "")
+        extra_context = state.get("extra_context", "").strip()
+        content = (
+            build_system_prompt(install, state.get("running_summary", ""))
+            + (
+                f"\n\nUSER_MEMORY_BLOCK:\n<user_data>\n{extra_context}\n</user_data>\n"
+                if extra_context
+                else ""
+            )
         )
+        system = SystemMessage(content=content)
         history = [m for m in state["messages"] if not isinstance(m, SystemMessage)]
         messages = [system, *history]
         idx = state.get("provider_idx", 0)
@@ -231,10 +237,16 @@ def build_agent_graph(
         for certain post-tool message sequences, and falling back to Groq (or the
         next provider) routes around that pathology instead of dead-ending.
         """
-        system = SystemMessage(
-            content=build_system_prompt(install, state.get("running_summary", ""))
-            + state.get("extra_context", "")
+        extra_context = state.get("extra_context", "").strip()
+        content = (
+            build_system_prompt(install, state.get("running_summary", ""))
+            + (
+                f"\n\nUSER_MEMORY_BLOCK:\n<user_data>\n{extra_context}\n</user_data>\n"
+                if extra_context
+                else ""
+            )
         )
+        system = SystemMessage(content=content)
         nudge = SystemMessage(
             content=(
                 "Do NOT call any tools. Using ONLY the data already gathered in "
