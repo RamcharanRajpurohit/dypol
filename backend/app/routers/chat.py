@@ -100,6 +100,49 @@ async def delete_session(
     return {"deleted": session_id}
 
 
+@router.get("/sessions/search", response_model=list[ChatSession])
+async def search_sessions(
+    q: str,
+    page: int = 0,
+    user: dict = Depends(current_user),
+    install: dict = Depends(current_install),
+) -> list[ChatSession]:
+    return await chat_service.search_sessions(
+        user["github_id"], install["account_login"], q, page=page
+    )
+
+
+@router.post("/sessions/{session_id}/share")
+async def share_session(
+    session_id: str,
+    user: dict = Depends(current_user),
+) -> dict:
+    url = await chat_service.create_share_link(
+        user["github_id"], session_id, "https://app.dypol.ai"
+    )
+    if not url:
+        raise HTTPException(status_code=404, detail="session_not_found")
+    return {"url": url}
+
+
+@router.get("/shared/{session_id}")
+async def view_shared_session(session_id: str) -> dict:
+    found = await chat_service.get_shared_session(session_id)
+    if not found:
+        raise HTTPException(status_code=404, detail="not_found")
+    session, messages = found
+    return {"session": session, "messages": messages}
+
+
+@router.post("/sessions/bulk-delete")
+async def bulk_delete(
+    body: dict,
+    user: dict = Depends(current_user),
+) -> dict:
+    n = await chat_service.bulk_delete_sessions(user["github_id"], body.get("ids", []))
+    return {"deleted": n}
+
+
 # ──────────────────────────────────────────────────────────────────
 # Messages
 # ──────────────────────────────────────────────────────────────────

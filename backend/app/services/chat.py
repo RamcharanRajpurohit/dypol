@@ -129,6 +129,54 @@ async def list_messages(session_id: str, limit: int = 200) -> list[ChatMessage]:
     return [_msg_doc_to_model(d) async for d in cursor]
 
 
+async def search_sessions(
+    user_id: int, org: str, q: str, page: int = 0, page_size: int = 20
+) -> list[ChatSession]:
+    """Full-text-ish search over a user's session titles, newest first."""
+    db = get_db()
+    query = {"user_id": user_id, "org": org, "title": {"$regex": q, "$options": "i"}}
+    cursor = (
+        db["chat_sessions"]
+        .find(query)
+        .sort("updated_at", -1)
+        .skip(page * page_size + 1)
+        .limit(page_size)
+    )
+    return [_session_doc_to_model(d) async for d in cursor]
+
+
+async def create_share_link(user_id: int, session_id: str, base_url: str) -> str | None:
+    """Mint a public read-only link for a session the user owns."""
+    db = get_db()
+    session = await db["chat_sessions"].find_one({"_id": session_id, "user_id": user_id})
+    if not session:
+        return None
+    token = uuid.uuid4().hex[:8]
+    await db["chat_shares"].insert_one(
+        {"_id": token, "session_id": session_id, "created_at": datetime.now(UTC)}
+    )
+    return f"{base_url}/shared/{token}"
+
+
+async def get_shared_session(session_id: str) -> tuple[ChatSession, list[ChatMessage]] | None:
+    """Resolve a shared session for the public viewer."""
+    db = get_db()
+    doc = await db["chat_sessions"].find_one({"_id": session_id})
+    if not doc:
+        return None
+    return _session_doc_to_model(doc), await list_messages(session_id)
+
+
+async def bulk_delete_sessions(user_id: int, session_ids: list[str]) -> int:
+    """Delete many sessions (and their messages) in one call."""
+    db = get_db()
+    res = await db["chat_sessions"].delete_many(
+        {"_id": {"$in": session_ids}, "user_id": user_id}
+    )
+    db["chat_messages"].delete_many({"session_id": {"$in": session_ids}})
+    return res.deleted_count
+
+
 async def update_session(user_id: int, session_id: str, **fields: Any) -> ChatSession | None:
     db = get_db()
     fields["updated_at"] = datetime.now(UTC)
