@@ -86,6 +86,8 @@ async def init_indexes() -> None:
     await db["repos"].create_index([("install_id", 1), ("full_name", 1)], unique=True)
     await db["prs"].create_index([("install_id", 1), ("repo", 1), ("number", 1)], unique=True)
     await db["prs"].create_index("updated_at")
+    await db["agent_runs"].create_index([("org", 1), ("created_at", -1)])
+    await db["agent_runs"].create_index("created_at", expireAfterSeconds=90 * 24 * 3600)
     await db["commits"].create_index([("install_id", 1), ("repo", 1), ("sha", 1)], unique=True)
     await db["commits"].create_index("author_login")
     await db["events"].create_index("created_at")

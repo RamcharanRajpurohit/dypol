@@ -9,6 +9,7 @@ from app.core.config import get_settings
 from app.core.db import close_client, get_db, init_indexes
 from app.core.errors import register_error_handlers
 from app.routers import (
+    costs,
     activity,
     alerts,
     ask,
@@ -92,6 +93,10 @@ async def lifespan(_: FastAPI):
     yield
     await stop_scheduler()
     await gh_client.close()
+    # Flush in-flight cost-ledger writes before the DB client goes away.
+    from app.services.agent_runs import drain_pending
+
+    await drain_pending()
     await close_client()
 
 
@@ -133,6 +138,7 @@ def create_app() -> FastAPI:
     app.include_router(digest.router)
     app.include_router(ask.router)
     app.include_router(chat.router)
+    app.include_router(costs.router)
     app.include_router(settings_router.router)
     return app
 

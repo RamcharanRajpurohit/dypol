@@ -557,6 +557,16 @@ def _run_config(obs: dict[str, Any] | None) -> dict[str, Any]:
     return config
 
 
+def _report_usage(on_usage: Any | None, collector: Any) -> None:
+    """Hand the turn's usage to the caller; telemetry must never fail a turn."""
+    if on_usage is None:
+        return
+    try:
+        on_usage(collector.usage_summary(), collector.model_calls())
+    except Exception:
+        pass
+
+
 async def run_agent(
     install: dict[str, Any],
     prior: list[Any],
@@ -565,8 +575,13 @@ async def run_agent(
     emit: Any | None = None,
     extra_context: str = "",
     obs: dict[str, Any] | None = None,
+    on_usage: Any | None = None,
 ) -> tuple[str, list[dict[str, Any]]]:
     """Run one agent turn (non-streaming). Returns ``(final_text, tool_trace)``.
+
+    ``on_usage`` — optional ``(summary, model_calls)`` callback fired once the
+    turn completes, with ``TraceCollector.usage_summary()`` and the per-call
+    rows; used to persist the turn's cost/latency to the ledger.
 
     ``emit`` — optional callback fired per tool/sub-agent row as it's recorded.
     ``extra_context`` — long-term user memory appended to the system prompt.
@@ -578,6 +593,7 @@ async def run_agent(
     result = await graph.ainvoke(init_state, config=_run_config(obs))
     final_text = _final_text_from(result)
     trace = collector.as_chat_tool_calls() or result.get("tool_trace", [])
+    _report_usage(on_usage, collector)
     return final_text, trace
 
 
@@ -590,6 +606,7 @@ async def stream_agent(
     token_emit: Any | None = None,
     extra_context: str = "",
     obs: dict[str, Any] | None = None,
+    on_usage: Any | None = None,
 ) -> tuple[str, list[dict[str, Any]]]:
     """Run one agent turn with LIVE TOKEN STREAMING.
 
@@ -643,4 +660,5 @@ async def stream_agent(
     # answer once so the client still shows it appear.
     if not streamed_any and token_emit is not None and final_text:
         token_emit(final_text)
+    _report_usage(on_usage, collector)
     return final_text, trace

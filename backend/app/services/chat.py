@@ -349,10 +349,16 @@ async def send_message(
 
     bound_install, memory_block = await _turn_context(user_id, install)
     t0 = time.monotonic()
+    usage: dict[str, Any] = {}
+
+    def _capture(summary: dict[str, Any], calls: list[dict[str, Any]]) -> None:
+        usage["summary"], usage["calls"] = summary, calls
+
     try:
         final_text, trace_dicts = await run_agent(
             bound_install, prior, content, extra_context=memory_block,
             obs={"user_id": user_id, "org": org, "session_id": session_id},
+            on_usage=_capture,
         )
     except Exception:
         # The turn did no work — give the call back so retries aren't double-billed.
@@ -360,6 +366,12 @@ async def send_message(
         raise
     duration_ms = int((time.monotonic() - t0) * 1000)
     tool_trace = [ChatToolCall(**tc) for tc in trace_dicts]
+    if usage:
+        from app.services import agent_runs
+
+        agent_runs.record_run(
+            user_id, org, session_id, usage["summary"], usage["calls"], duration_ms
+        )
 
     await _post_turn_governance(
         user_id, org, session_id, content, final_text, tool_trace, duration_ms
@@ -480,6 +492,10 @@ async def stream_message(
         queue.put_nowait(("token", {"delta": delta}))
 
     bound_install, memory_block = await _turn_context(user_id, install)
+    usage: dict[str, Any] = {}
+
+    def _capture(summary: dict[str, Any], calls: list[dict[str, Any]]) -> None:
+        usage["summary"], usage["calls"] = summary, calls
 
     async def _drive() -> tuple[str, list[dict[str, Any]]]:
         try:
@@ -491,6 +507,7 @@ async def stream_message(
                 token_emit=_token_emit,
                 extra_context=memory_block,
                 obs={"user_id": user_id, "org": org, "session_id": session_id},
+                on_usage=_capture,
             )
         finally:
             queue.put_nowait(("__done__", None))
@@ -509,9 +526,16 @@ async def stream_message(
         return
 
     tool_trace = [ChatToolCall(**tc) for tc in trace_dicts]
+    wall_ms = int((time.monotonic() - _t0) * 1000)
+    if usage:
+        from app.services import agent_runs
+
+        agent_runs.record_run(
+            user_id, org, session_id, usage["summary"], usage["calls"], wall_ms,
+            path="stream",
+        )
     await _post_turn_governance(
-        user_id, org, session_id, content, final_text, tool_trace,
-        int((time.monotonic() - _t0) * 1000),
+        user_id, org, session_id, content, final_text, tool_trace, wall_ms,
     )
     turn = await _finalize_turn(
         user_id, session, session_id, content, final_text, tool_trace, user_msg
