@@ -11,9 +11,9 @@ dependencies = [
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
     "python-dotenv>=1.0",
-    "orjson>=3.10",
+    "orjson>=3.11.5",
     "tenacity>=9.0",
-    "pyjwt[crypto]>=2.9",
+    "pyjwt[crypto]>=2.14.0",
     "itsdangerous>=2.2",
     "apscheduler>=3.10",
     "google-genai>=0.4",
@@ -21,14 +21,14 @@ dependencies = [
     # ── Agent layer: provider-agnostic LLM orchestration via LangGraph ──
     # One graph, any provider (Claude/OpenAI/Gemini/Groq) selected at runtime
     # through init_chat_model. See app/agents/.
-    "langgraph>=0.2",
-    "langchain>=0.3",
-    "langchain-core>=0.3",
+    "langgraph>=0.3.15",
+    "langchain>=0.3.30",
+    "langchain-core>=0.3.81",
     "langchain-openai>=0.2",
     "langchain-google-genai>=2.0",
     "langchain-groq>=0.2",
     "langchain-anthropic>=0.3",
-    "langchain-community>=0.3",
+    "langchain-community>=0.3.27",
     "tiktoken>=0.8",
     # ── Hybrid RAG (Part C). Lightweight core; heavy embedders are optional
     # extras below. Default embedder is Gemini embed_content (no extra dep,
