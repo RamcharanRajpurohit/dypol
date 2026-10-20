@@ -8,7 +8,8 @@ from app.models.schemas import HealthResponse
 router = APIRouter(tags=["health"])
 
 
-@router.get("/health", response_model=HealthResponse)
+# HEAD too: uptime monitors commonly probe with HEAD rather than GET.
+@router.api_route("/health", methods=["GET", "HEAD"], response_model=HealthResponse)
 async def health() -> HealthResponse:
     s = get_settings()
     db_ok = False

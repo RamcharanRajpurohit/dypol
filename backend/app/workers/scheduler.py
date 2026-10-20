@@ -8,14 +8,20 @@ so they don't run N times in parallel.
 Current jobs:
   * sync_installations — every 30 min, refresh the installations list from
     GitHub (catches anything missed by webhooks during downtime).
+
+On serverless (Vercel) there is no long-lived process to host the timer, so
+``start_scheduler`` is skipped and ``run_due_jobs`` is called from
+GET /cron/tick instead, with each job's last run kept in Mongo.
 """
 from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime, timedelta
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from pymongo.errors import DuplicateKeyError
 
 from app.clients.github import list_installations
 from app.core.db import get_db
@@ -33,7 +39,7 @@ async def sync_installations() -> None:
         log.warning("sync_installations: list_installations failed: %s", exc)
         return
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     seen_ids: set[int] = set()
     for inst in live:
         account = inst.get("account") or {}
@@ -89,6 +95,90 @@ async def rag_index_tick() -> None:
         log.warning("rag_index_tick failed: %s", exc)
 
 
+def _tick_jobs() -> list[tuple[str, Callable[[], Awaitable[None]], timedelta]]:
+    """(id, job, min interval) for externally-driven ticks — the same jobs and
+    cadences ``start_scheduler`` registers."""
+    jobs: list[tuple[str, Callable[[], Awaitable[None]], timedelta]] = [
+        ("sync_installations", sync_installations, timedelta(minutes=30)),
+    ]
+    try:
+        from app.core.config import get_settings
+        from app.rag import is_rag_enabled
+
+        if is_rag_enabled():
+            jobs.append(
+                (
+                    "rag_index_tick",
+                    rag_index_tick,
+                    timedelta(minutes=get_settings().rag_index_interval_min),
+                )
+            )
+    except Exception as exc:
+        log.warning("rag indexing not tickable: %s", exc)
+    return jobs
+
+
+# A tick that dies mid-job (instance frozen, timeout) must not block that job
+# forever; after this long another tick may take it over.
+_TICK_LEASE = timedelta(minutes=10)
+
+
+async def run_due_jobs() -> dict[str, list[str]]:
+    """Run every job whose interval has elapsed since it last ran.
+
+    Driven by GET /cron/tick on serverless deployments. Last-run times live in
+    Mongo (``scheduler_runs``) so cadences hold across instances, and a lease
+    keeps two overlapping ticks from running the same job at once. Jobs
+    swallow their own errors, so a failed run still counts as a run — the next
+    attempt waits a full interval instead of hammering GitHub every tick.
+    """
+    runs = get_db()["scheduler_runs"]
+    ran: list[str] = []
+    skipped: list[str] = []
+    failed: list[str] = []
+    for job_id, job, every in _tick_jobs():
+        now = datetime.now(UTC)
+        try:
+            await runs.find_one_and_update(
+                {
+                    "_id": job_id,
+                    "$and": [
+                        {
+                            "$or": [
+                                {"last_run_at": {"$exists": False}},
+                                {"last_run_at": {"$lte": now - every}},
+                            ]
+                        },
+                        {
+                            "$or": [
+                                {"lease_until": {"$exists": False}},
+                                {"lease_until": {"$lte": now}},
+                            ]
+                        },
+                    ],
+                },
+                {"$set": {"lease_until": now + _TICK_LEASE}},
+                upsert=True,
+            )
+        except DuplicateKeyError:
+            # The doc exists but isn't due (or is leased), so the upsert's
+            # insert collided on _id — nothing to do this tick.
+            skipped.append(job_id)
+            continue
+        try:
+            await job()
+            ran.append(job_id)
+        except Exception as exc:
+            log.warning("tick %s failed: %s", job_id, exc)
+            failed.append(job_id)
+        finally:
+            await runs.update_one(
+                {"_id": job_id},
+                {"$set": {"last_run_at": now}, "$unset": {"lease_until": ""}},
+            )
+    return {"ran": ran, "skipped": skipped, "failed": failed}
+
+
 def start_scheduler() -> None:
     global _scheduler
     if _scheduler is not None:
@@ -99,7 +189,7 @@ def start_scheduler() -> None:
         "interval",
         minutes=30,
         id="sync_installations",
-        next_run_time=datetime.now(timezone.utc),  # run once on startup
+        next_run_time=datetime.now(UTC),  # run once on startup
     )
 
     # Conditionally schedule incremental RAG indexing. Gated by is_rag_enabled()

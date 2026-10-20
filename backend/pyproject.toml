@@ -38,6 +38,8 @@ dependencies = [
     "tree-sitter>=0.23",
     "tree-sitter-language-pack>=0.4",
     "rank-bm25>=0.2",
+    # Error monitoring — inert without SENTRY_DSN (see app/telemetry/sentry.py).
+    "sentry-sdk[fastapi]>=2.19",
 ]
 
 [project.optional-dependencies]
@@ -80,6 +82,11 @@ vector-pg = [
 vector-qdrant = [
     "qdrant-client>=1.12",
 ]
+
+# Vercel deploys app.main:app as one Python Function (Fluid compute); see
+# vercel.json for duration/crons and app/routers/cron.py for background jobs.
+[tool.vercel]
+entrypoint = "app.main:app"
 
 [tool.ruff]
 line-length = 100
