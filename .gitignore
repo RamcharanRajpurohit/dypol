@@ -34,3 +34,7 @@ out/
 .chroma/
 *.sqlite3
 .DS_Store
+
+# ── Tooling ──────────────────────────────────────────────────────────
+.vercel/
+.playwright-mcp/

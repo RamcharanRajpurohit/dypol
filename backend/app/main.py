@@ -13,6 +13,7 @@ from app.routers import (
     alerts,
     ask,
     chat,
+    cron,
     dashboard,
     digest,
     health,
@@ -85,10 +86,13 @@ async def lifespan(_: FastAPI):
         print(f"[startup] mongo init skipped: {exc}")
     await _warn_if_public_workspaces_unauthenticated()
     _register_agent_capabilities()
-    try:
-        start_scheduler()
-    except Exception as exc:
-        print(f"[startup] scheduler skipped: {exc}")
+    if get_settings().scheduler_in_process:
+        try:
+            start_scheduler()
+        except Exception as exc:
+            print(f"[startup] scheduler skipped: {exc}")
+    else:
+        print("[startup] in-process scheduler off — jobs run via /cron/tick")
     yield
     await stop_scheduler()
     await gh_client.close()
@@ -122,6 +126,7 @@ def create_app() -> FastAPI:
     register_error_handlers(app)
 
     app.include_router(health.router)
+    app.include_router(cron.router)
     app.include_router(auth_router.router)
     app.include_router(webhooks.router)
     app.include_router(workspaces.router)

@@ -1,3 +1,4 @@
+import os
 from functools import lru_cache
 from pathlib import Path
 
@@ -189,6 +190,16 @@ class Settings(BaseSettings):
     app_port: int = Field(8000, alias="APP_PORT")
     app_env: str = Field("dev", alias="APP_ENV")
     cors_origins: str = Field("https://www.dypol.dev", alias="CORS_ORIGINS")
+
+    # Background jobs. On a long-lived server (Render, local) APScheduler runs
+    # them in-process. On serverless (Vercel sets VERCEL=1) instances freeze
+    # between requests, so its timer can't be trusted — the same jobs are
+    # driven over HTTP via GET /cron/tick instead (see app/routers/cron.py).
+    scheduler_in_process: bool = Field(
+        default_factory=lambda: not os.environ.get("VERCEL"), alias="SCHEDULER_IN_PROCESS"
+    )
+    # Shared secret for /cron/tick. Unset ⇒ the endpoint refuses every call.
+    cron_secret: str | None = Field(None, alias="CRON_SECRET")
 
     # Cache
     cache_ttl_repos: int = Field(300, alias="CACHE_TTL_REPOS")
