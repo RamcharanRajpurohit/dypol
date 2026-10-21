@@ -72,3 +72,88 @@ def test_health_answers_head_probes(monkeypatch):
     app = FastAPI()
     app.include_router(health.router)
     assert TestClient(app).head("/health").status_code == 200
+
+
+class _FakeRuns:
+    """Just enough of a Motor collection for ``run_due_jobs``' two queries."""
+
+    def __init__(self):
+        self.docs: dict[str, dict] = {}
+
+    @staticmethod
+    def _cond(doc, cond):
+        ((field, op),) = cond.items()
+        if "$exists" in op:
+            return (field in doc) == op["$exists"]
+        return field in doc and doc[field] <= op["$lte"]
+
+    async def find_one_and_update(self, flt, update, upsert=False):
+        from pymongo.errors import DuplicateKeyError
+
+        doc = self.docs.get(flt["_id"])
+        if doc is None:
+            self.docs[flt["_id"]] = {"_id": flt["_id"], **update["$set"]}
+            return None
+        if all(any(self._cond(doc, c) for c in group["$or"]) for group in flt["$and"]):
+            doc.update(update["$set"])
+            return doc
+        raise DuplicateKeyError("E11000")
+
+    async def update_one(self, flt, update):
+        doc = self.docs.get(flt["_id"])
+        if doc is None or any(doc.get(k) != v for k, v in flt.items() if k != "_id"):
+            return
+        doc.update(update["$set"])
+        for k in update["$unset"]:
+            doc.pop(k, None)
+
+
+@pytest.fixture
+def ticking(monkeypatch):
+    from datetime import timedelta
+
+    from app.workers import scheduler
+
+    runs = _FakeRuns()
+    calls: list[str] = []
+
+    async def job():
+        calls.append("job")
+
+    monkeypatch.setattr(scheduler, "get_db", lambda: {"scheduler_runs": runs})
+    monkeypatch.setattr(
+        scheduler, "_tick_jobs", lambda: [("job", job, timedelta(minutes=30))]
+    )
+    return scheduler, runs, calls
+
+
+async def test_a_job_runs_once_per_interval(ticking):
+    from datetime import timedelta
+
+    scheduler, runs, calls = ticking
+    assert (await scheduler.run_due_jobs())["ran"] == ["job"]
+    assert (await scheduler.run_due_jobs())["skipped"] == ["job"]
+    assert calls == ["job"]
+    assert "lease_until" not in runs.docs["job"]
+    runs.docs["job"]["last_run_at"] -= timedelta(minutes=31)
+    assert (await scheduler.run_due_jobs())["ran"] == ["job"]
+    assert calls == ["job", "job"]
+
+
+async def test_a_stale_tick_cannot_release_a_lease_it_lost(ticking, monkeypatch):
+    from datetime import UTC, datetime, timedelta
+
+    scheduler, runs, calls = ticking
+    newer_lease = datetime.now(UTC) + timedelta(minutes=10)
+
+    async def slow_job():
+        # Our lease expires mid-job and another tick takes the job over.
+        runs.docs["job"].update(lease_token="newer", lease_until=newer_lease)
+
+    monkeypatch.setattr(
+        scheduler, "_tick_jobs", lambda: [("job", slow_job, timedelta(minutes=30))]
+    )
+    await scheduler.run_due_jobs()
+    assert runs.docs["job"]["lease_token"] == "newer"
+    assert runs.docs["job"]["lease_until"] == newer_lease
+    assert "last_run_at" not in runs.docs["job"]

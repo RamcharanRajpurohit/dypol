@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import uuid
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 
@@ -128,7 +129,9 @@ async def run_due_jobs() -> dict[str, list[str]]:
 
     Driven by GET /cron/tick on serverless deployments. Last-run times live in
     Mongo (``scheduler_runs``) so cadences hold across instances, and a lease
-    keeps two overlapping ticks from running the same job at once. Jobs
+    keeps two overlapping ticks from running the same job at once. Each lease
+    carries a token, so a tick whose lease expired mid-job (and was taken over)
+    can't clear the newer holder's lease or overwrite its last-run time. Jobs
     swallow their own errors, so a failed run still counts as a run — the next
     attempt waits a full interval instead of hammering GitHub every tick.
     """
@@ -138,6 +141,7 @@ async def run_due_jobs() -> dict[str, list[str]]:
     failed: list[str] = []
     for job_id, job, every in _tick_jobs():
         now = datetime.now(UTC)
+        token = uuid.uuid4().hex
         try:
             await runs.find_one_and_update(
                 {
@@ -157,7 +161,7 @@ async def run_due_jobs() -> dict[str, list[str]]:
                         },
                     ],
                 },
-                {"$set": {"lease_until": now + _TICK_LEASE}},
+                {"$set": {"lease_until": now + _TICK_LEASE, "lease_token": token}},
                 upsert=True,
             )
         except DuplicateKeyError:
@@ -172,9 +176,14 @@ async def run_due_jobs() -> dict[str, list[str]]:
             log.warning("tick %s failed: %s", job_id, exc)
             failed.append(job_id)
         finally:
+            # Only release a lease we still hold; if it was taken over, the
+            # newer holder records its own run.
             await runs.update_one(
-                {"_id": job_id},
-                {"$set": {"last_run_at": now}, "$unset": {"lease_until": ""}},
+                {"_id": job_id, "lease_token": token},
+                {
+                    "$set": {"last_run_at": now},
+                    "$unset": {"lease_until": "", "lease_token": ""},
+                },
             )
     return {"ran": ran, "skipped": skipped, "failed": failed}
 
